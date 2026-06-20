@@ -18,7 +18,14 @@ export default function InvoiceView({ params }: { params: Promise<{ id: string }
     <div className="max-w-3xl">
       <div className="flex justify-between items-center mb-4 print:hidden">
         <Link href="/invoices" className="text-muted hover:text-white text-sm">← Back to invoices</Link>
-        <button className="btn" onClick={() => window.print()}>Print / Save PDF</button>
+        <div className="flex items-center gap-2">
+          {inv.hosted_url && inv.status !== "paid" && (
+            <a href={inv.hosted_url} target="_blank" rel="noreferrer" className="btn bg-good text-white hover:opacity-90">
+              Pay now
+            </a>
+          )}
+          <button className="btn" onClick={() => window.print()}>Print / Save PDF</button>
+        </div>
       </div>
 
       {/* The invoice sheet */}
@@ -49,6 +56,7 @@ export default function InvoiceView({ params }: { params: Promise<{ id: string }
             <div className="text-xs uppercase tracking-wide text-slate-400">Bill to</div>
             <div className="font-medium">{client.name}</div>
             {client.email && <div className="text-sm text-slate-500">{client.email}</div>}
+            {client.phone && <div className="text-sm text-slate-500">{client.phone}</div>}
             {client.address && <div className="text-sm text-slate-500 whitespace-pre-line">{client.address}</div>}
           </div>
         )}
@@ -81,8 +89,23 @@ export default function InvoiceView({ params }: { params: Promise<{ id: string }
             <div className="flex justify-between py-2 mt-1 border-t-2 border-slate-200 font-bold text-base">
               <span>Total</span><span>{money(inv.total_cents)}</span>
             </div>
+            {inv.deposit_due_cents > 0 && (
+              <div className="mt-2 pt-2 border-t border-slate-200">
+                <div className="flex justify-between py-1 text-emerald-700 font-medium">
+                  <span>Deposit due now{inv.deposit_pct ? ` (${inv.deposit_pct}%)` : ""}</span>
+                  <span>{money(inv.deposit_due_cents)}</span>
+                </div>
+                <Row label="Balance" value={money(inv.total_cents - inv.deposit_due_cents)} />
+              </div>
+            )}
           </div>
         </div>
+
+        {inv.reminder_freq && (
+          <div className="mt-4 text-sm text-slate-500">
+            Payment reminders: <span className="capitalize">{inv.reminder_freq}</span> while unpaid.
+          </div>
+        )}
 
         {/* Payment details — auto-filled from business profile */}
         {entity?.bank_account_number && (

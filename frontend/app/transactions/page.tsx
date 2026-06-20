@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { fetcher, api, money } from "@/lib/api";
 import { useEntity, withEntity } from "@/lib/entity-context";
@@ -198,8 +198,8 @@ export default function Transactions() {
             {txs?.map((t: any) => {
               const cat = (categories || []).find((c: any) => c.id === t.category_id);
               return (
-                <>
-                  <tr key={t.id} className={t.is_recurring ? "bg-accent/5" : ""}>
+                <React.Fragment key={t.id}>
+                  <tr className={t.is_recurring ? "bg-accent/5" : ""}>
                     <td className="td">{t.date}</td>
                     <td className="td text-muted text-xs">{entityName(t.entity_id)}</td>
                     <td className="td">
@@ -268,13 +268,13 @@ export default function Transactions() {
                     </td>
                   </tr>
                   {recurringOpen === t.id && (
-                    <tr key={`${t.id}-rec`}>
+                    <tr>
                       <td colSpan={6} className="px-4 py-2 bg-surface-2">
                         <RecurringPicker tx={t} onSave={setRecurring} onClose={() => setRecurringOpen(null)} />
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>

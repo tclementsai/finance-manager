@@ -123,6 +123,7 @@ class Client(Base):
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=False)
     name = Column(String, nullable=False)
     email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
     address = Column(Text, nullable=True)
 
 
@@ -141,10 +142,25 @@ class Invoice(Base):
     stripe_invoice_id = Column(String, nullable=True)
     hosted_url = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    # Deposit: a fixed amount (deposit_cents) OR a percentage of the total
+    # (deposit_pct, 0–100). UI enforces one or the other; deposit_due_cents
+    # resolves whichever is set.
+    deposit_cents = Column(Integer, nullable=True)
+    deposit_pct = Column(Float, nullable=True)
+    # How often to remind the client while unpaid: none|weekly|fortnightly|monthly
+    reminder_freq = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     client = relationship("Client")
     lines = relationship("InvoiceLine", back_populates="invoice", cascade="all, delete-orphan")
+
+    @property
+    def deposit_due_cents(self) -> int:
+        if self.deposit_cents:
+            return min(self.deposit_cents, self.total_cents or 0)
+        if self.deposit_pct:
+            return int(round((self.total_cents or 0) * self.deposit_pct / 100))
+        return 0
 
 
 class InvoiceLine(Base):
@@ -192,3 +208,20 @@ class CgtEvent(Base):
     cost_cents = Column(Integer, default=0)
     gain_cents = Column(Integer, default=0)
     discounted = Column(Boolean, default=False)  # held >12mo => 50% CGT discount
+
+
+class NetWorthItem(Base):
+    """A manually-tracked asset or liability for net-worth calculation.
+
+    category drives whether it's an asset or a liability (see ASSET_CATEGORIES /
+    LIABILITY_CATEGORIES in the networth router). Live bank balances are pulled
+    separately from the accounts table, so they don't need entries here.
+    """
+    __tablename__ = "net_worth_items"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    category = Column(String, nullable=False)  # bank|shares|crypto|vehicle|property|equipment|loan|credit_card|mortgage
+    value_cents = Column(Integer, default=0)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

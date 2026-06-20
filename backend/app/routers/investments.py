@@ -45,3 +45,12 @@ def create_cgt(body: schemas.CgtEventIn, db: Session = Depends(get_db)):
     ev = models.CgtEvent(**body.model_dump(), gain_cents=gain)
     db.add(ev); db.commit(); db.refresh(ev)
     return ev
+
+
+@router.delete("/cgt-events/{eid}")
+def delete_cgt(eid: int, db: Session = Depends(get_db)):
+    ev = db.get(models.CgtEvent, eid)
+    if not ev:
+        raise HTTPException(404, "Not found")
+    db.delete(ev); db.commit()
+    return {"ok": True}

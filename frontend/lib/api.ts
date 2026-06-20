@@ -5,7 +5,18 @@ export async function api(path: string, opts: RequestInit = {}) {
     headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
     ...opts,
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const body = await res.text();
+    // FastAPI errors come back as {"detail": "..."} — surface just the message.
+    let message = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed?.detail) message = typeof parsed.detail === "string"
+        ? parsed.detail
+        : JSON.stringify(parsed.detail);
+    } catch {}
+    throw new Error(message || `Request failed (${res.status})`);
+  }
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }

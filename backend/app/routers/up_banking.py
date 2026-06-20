@@ -20,15 +20,82 @@ def _up_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}", "Accept": "application/json"}
 
 
+def _raise_for_up(resp: httpx.Response) -> None:
+    """Translate an unsuccessful UP API response into a clear HTTP error.
+
+    A 401 here means the saved token is no longer accepted by UP (expired or
+    revoked), so tell the user to reconnect instead of surfacing a bare 401.
+    """
+    if resp.is_success:
+        return
+    if resp.status_code == 401:
+        raise HTTPException(
+            401,
+            "UP Banking rejected the saved token (expired or revoked). "
+            "Generate a new Personal Access Token in the UP app and reconnect.",
+        )
+    raise HTTPException(resp.status_code, resp.text)
+
+
 def _get_token(entity_id: int, db: Session) -> str:
     entity = db.query(models.Entity).filter_by(id=entity_id).first()
     if not entity or not entity.up_api_token:
         raise HTTPException(400, "No UP Banking token saved for this entity.")
     raw = entity.up_api_token
-    # Migrate plaintext tokens on first read
-    if not is_encrypted(raw):
+    # Legacy plaintext tokens were stored before encryption was added; UP PATs
+    # always start with "up:", so treat those as a valid (unencrypted) token.
+    if raw.startswith("up:"):
         return raw
+    # Otherwise it must be Fernet ciphertext we can decrypt. If we can't (e.g.
+    # SECRET_KEY changed since it was saved), fail loudly rather than silently
+    # sending the unusable ciphertext to UP and getting a confusing 401.
+    if not is_encrypted(raw):
+        raise HTTPException(
+            400,
+            "Saved UP Banking token could not be read (it may have been "
+            "encrypted with a different SECRET_KEY). Please reconnect with a "
+            "fresh token.",
+        )
     return decrypt(raw)
+
+
+def _provision_accounts(entity_id: int, token: str, db: Session) -> int:
+    """Create a local account for every UP account that isn't linked yet.
+
+    Returns the number of new local accounts created. Existing accounts (matched
+    by up_account_id) are left untouched so re-connecting never duplicates them.
+    """
+    try:
+        resp = httpx.get(f"{UP_BASE}/accounts", headers=_up_headers(token), timeout=10)
+    except httpx.RequestError as e:
+        raise HTTPException(502, str(e))
+    _raise_for_up(resp)
+
+    existing = {
+        a.up_account_id
+        for a in db.query(models.Account).filter_by(entity_id=entity_id).all()
+        if a.up_account_id
+    }
+    created = 0
+    for ua in resp.json().get("data", []):
+        up_id = ua["id"]
+        if up_id in existing:
+            continue
+        attrs = ua.get("attributes", {})
+        bal = attrs.get("balance", {})
+        up_type = attrs.get("accountType", "")
+        local_type = "savings" if up_type == "SAVER" else "everyday"
+        db.add(models.Account(
+            entity_id=entity_id,
+            name=attrs.get("displayName") or "UP Account",
+            type=local_type,
+            balance_cents=int(bal.get("valueInBaseUnits") or 0),
+            up_account_id=up_id,
+        ))
+        created += 1
+    if created:
+        db.commit()
+    return created
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────────
@@ -69,8 +136,24 @@ def connect(body: ConnectIn, db: Session = Depends(get_db)):
 
     entity.up_api_token = encrypt(body.token)
     db.commit()
-    ping_data = resp.json()
-    return {"status": "connected", "meta": ping_data.get("meta", {})}
+
+    # Auto-provision: discover UP accounts, create local accounts for them, then
+    # pull in transactions so connecting populates the dashboard with no extra
+    # manual steps. Failures here shouldn't undo a successful connection.
+    accounts_created = 0
+    sync_result: dict = {}
+    try:
+        accounts_created = _provision_accounts(body.entity_id, body.token, db)
+        sync_result = sync(SyncIn(entity_id=body.entity_id), db)
+    except HTTPException as e:
+        sync_result = {"error": e.detail}
+
+    return {
+        "status": "connected",
+        "meta": resp.json().get("meta", {}),
+        "accounts_created": accounts_created,
+        "sync": sync_result,
+    }
 
 
 @router.delete("/connect/{entity_id}")
@@ -92,8 +175,7 @@ def list_up_accounts(entity_id: int, db: Session = Depends(get_db)):
         resp = httpx.get(f"{UP_BASE}/accounts", headers=_up_headers(token), timeout=10)
     except httpx.RequestError as e:
         raise HTTPException(502, str(e))
-    if not resp.is_success:
-        raise HTTPException(resp.status_code, resp.text)
+    _raise_for_up(resp)
 
     up_accounts = resp.json().get("data", [])
     # Mark which are already linked to local accounts
@@ -238,8 +320,7 @@ def sync(body: SyncIn, db: Session = Depends(get_db)):
                 resp = httpx.get(url, headers=_up_headers(token), params=params if "?" not in url else None, timeout=15)
             except httpx.RequestError as e:
                 raise HTTPException(502, str(e))
-            if not resp.is_success:
-                raise HTTPException(resp.status_code, resp.text)
+            _raise_for_up(resp)
 
             payload = resp.json()
             for txn in payload.get("data", []):

@@ -112,6 +112,7 @@ class ClientIn(BaseModel):
     entity_id: int
     name: str
     email: Optional[str] = None
+    phone: Optional[str] = None
     address: Optional[str] = None
 
 
@@ -138,6 +139,9 @@ class InvoiceIn(BaseModel):
     issue_date: Optional[date] = None
     due_date: Optional[date] = None
     notes: Optional[str] = None
+    deposit_cents: Optional[int] = None
+    deposit_pct: Optional[float] = None
+    reminder_freq: Optional[str] = None
     lines: List[InvoiceLineIn] = []
 
 
@@ -152,6 +156,10 @@ class InvoiceOut(ORM):
     subtotal_cents: int
     gst_cents: int
     total_cents: int
+    deposit_cents: Optional[int] = None
+    deposit_pct: Optional[float] = None
+    deposit_due_cents: int = 0
+    reminder_freq: Optional[str] = None
     stripe_invoice_id: Optional[str] = None
     hosted_url: Optional[str] = None
     notes: Optional[str] = None
@@ -197,3 +205,32 @@ class CgtEventIn(BaseModel):
 class CgtEventOut(ORM, CgtEventIn):
     id: int
     gain_cents: int
+
+
+# ---- Net worth ----
+class NetWorthItemIn(BaseModel):
+    name: str
+    category: str
+    value_cents: int = 0
+    notes: Optional[str] = None
+
+
+class NetWorthItemOut(ORM, NetWorthItemIn):
+    id: int
+    kind: str = "asset"  # asset | liability (derived in the router)
+
+
+class NetWorthGroup(BaseModel):
+    category: str
+    label: str
+    kind: str
+    total_cents: int
+    items: List[NetWorthItemOut] = []
+
+
+class NetWorthSummary(BaseModel):
+    assets_cents: int
+    liabilities_cents: int
+    net_worth_cents: int
+    bank_live_cents: int
+    groups: List[NetWorthGroup] = []

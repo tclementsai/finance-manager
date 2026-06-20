@@ -5,19 +5,38 @@
 :root { color-scheme: dark; }
 
 body {
-  background: #0b0d12;
   color: #e6e9f0;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Soft colour blobs give the frosted cards something to refract. Fixed so
+     the glass effect stays consistent while scrolling. */
+  background-color: #0b0d12;
+  background-image:
+    radial-gradient(40rem 40rem at 12% -8%, rgba(91, 140, 255, 0.26), transparent 60%),
+    radial-gradient(34rem 34rem at 95% 0%, rgba(198, 120, 255, 0.22), transparent 60%),
+    radial-gradient(38rem 38rem at 80% 100%, rgba(62, 207, 142, 0.16), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 @media print {
   aside { display: none !important; }
   main { padding: 0 !important; max-width: none !important; }
   body { background: #fff !important; }
+  .card { background: #fff !important; backdrop-filter: none !important; box-shadow: none !important; }
 }
 
 @layer components {
-  .card { @apply bg-panel border border-border rounded-xl p-5; }
+  /* Liquid-glass card: translucent, blurred backdrop with a bright top edge. */
+  .card {
+    @apply rounded-xl p-5;
+    background: rgba(22, 27, 38, 0.42);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 10px 40px rgba(0, 0, 0, 0.40),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
   .stat-label { @apply text-muted text-xs uppercase tracking-wide; }
   .stat-value { @apply text-2xl font-semibold mt-1; }
   .btn { @apply bg-accent text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition; }

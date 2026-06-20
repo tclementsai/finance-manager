@@ -57,6 +57,9 @@ def create_invoice(body: schemas.InvoiceIn, db: Session = Depends(get_db)):
         issue_date=body.issue_date or date.today(),
         due_date=body.due_date or (date.today() + timedelta(days=entity.payment_terms_days or 30)),
         notes=body.notes,
+        deposit_cents=body.deposit_cents,
+        deposit_pct=body.deposit_pct,
+        reminder_freq=body.reminder_freq,
     )
     inv.lines = [models.InvoiceLine(**l.model_dump()) for l in body.lines]
     _recalc(inv, entity)

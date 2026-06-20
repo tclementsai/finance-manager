@@ -14,6 +14,7 @@ from . import models
 from .routers import (
     entities, accounts, transactions, categories, imports,
     receipts, clients, invoices, investments, dashboard, up_banking, commitments,
+    networth,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,16 @@ def _lightweight_migrate():
         "recurrence_freq": "VARCHAR",
         "recurring_override": "BOOLEAN DEFAULT 0",
     }
+    existing_clients = {c["name"] for c in insp.get_columns("clients")}
+    client_additions = {
+        "phone": "VARCHAR",
+    }
+    existing_invoices = {c["name"] for c in insp.get_columns("invoices")}
+    invoice_additions = {
+        "deposit_cents": "INTEGER",
+        "deposit_pct": "FLOAT",
+        "reminder_freq": "VARCHAR",
+    }
     with engine.begin() as conn:
         for col, ddl in entity_additions.items():
             if col not in existing_entities:
@@ -57,6 +68,12 @@ def _lightweight_migrate():
         for col, ddl in txn_additions.items():
             if col not in existing_txns:
                 conn.execute(text(f"ALTER TABLE transactions ADD COLUMN {col} {ddl}"))
+        for col, ddl in client_additions.items():
+            if col not in existing_clients:
+                conn.execute(text(f"ALTER TABLE clients ADD COLUMN {col} {ddl}"))
+        for col, ddl in invoice_additions.items():
+            if col not in existing_invoices:
+                conn.execute(text(f"ALTER TABLE invoices ADD COLUMN {col} {ddl}"))
 
 
 _lightweight_migrate()
@@ -131,5 +148,6 @@ def login(payload: dict):
 
 
 for r in (entities, accounts, transactions, categories, imports,
-          receipts, clients, invoices, investments, dashboard, up_banking, commitments):
+          receipts, clients, invoices, investments, dashboard, up_banking, commitments,
+          networth):
     app.include_router(r.router)

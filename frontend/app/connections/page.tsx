@@ -206,13 +206,17 @@ function UpCard({ entity, liveAccounts }: { entity: any; liveAccounts: any[] }) 
     if (!token.trim()) return;
     setTokenErr(""); setLoading(true);
     try {
-      await api("/api/up/connect", {
+      const res = await api("/api/up/connect", {
         method: "POST",
         body: JSON.stringify({ entity_id: entity.id, token: token.trim() }),
       });
       setToken("");
-      globalMutate("/api/entities");
-      mutateUp();
+      // Connect auto-provisions accounts and runs an initial sync — surface the
+      // result and refresh every /api/ query so the dashboard fills in at once.
+      if (res?.sync && !res.sync.error) setSyncResult(res.sync);
+      if (res?.sync?.error) setSyncErr(String(res.sync.error));
+      globalMutate((k: any) => typeof k === "string" && k.startsWith("/api/"));
+      mutateUp(); mutateLocal();
     } catch (e: any) { setTokenErr(String(e.message || e)); }
     finally { setLoading(false); }
   }

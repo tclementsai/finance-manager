@@ -15,7 +15,9 @@ const links = [
   ["/commitments", "Commitments"],
   ["/deductions", "Deductions"],
   ["/invoices", "Invoices"],
+  ["/clients", "Clients"],
   ["/investments", "Investments"],
+  ["/networth", "Net Worth"],
 ];
 
 export function Nav() {

@@ -139,23 +139,11 @@ def summary(
             seen_recurring[key] = int(round(rt.amount_cents * FREQ_TO_MONTHLY.get(freq, 1.0)))
     monthly_commitments_cents = sum(seen_recurring.values())
 
-    # Period span (inclusive of both start and end months) and the total
-    # recurring commitments expected across that span.
-    months_in_period = max(
-        1, (end.year - start.year) * 12 + (end.month - start.month) + 1
-    )
-    commitments_period_cents = monthly_commitments_cents * months_in_period
-
-    # Interest specifically earned in savings accounts over the period.
-    interest_savings_cents = sum(
-        t.amount_cents for t in txs
-        if t.direction == "in" and is_personal(t)
-        and acct_types.get(t.account_id) == "savings"
-        and (
-            t.income_type == "interest"
-            or "interest" in (t.description or "").lower()
-        )
-    )
+    # Prorate the monthly commitments to the actual length of the selected
+    # period so a short window (e.g. one week) is charged its share, not a full
+    # month. Uses the average month length (30.44 days).
+    days_in_period = max(1, (end - start).days + 1)
+    commitments_period_cents = int(round(monthly_commitments_cents * days_in_period / 30.44))
 
     # If the view is filtered to a single BUSINESS entity, present a business P&L
     # view; otherwise present the personal "what's actually mine to spend" view.
@@ -173,7 +161,7 @@ def summary(
             flat_rate=rate,
         )
         tax_setaside_cents = int(round(setaside["setaside"] * 100))
-        available = personal_income - personal_expenses - tax_setaside_cents - monthly_commitments_cents
+        available = personal_income - personal_expenses - tax_setaside_cents - commitments_period_cents
 
     net_cash = income_total - expense_total
 
@@ -228,8 +216,7 @@ def summary(
         "available_to_spend_cents": available,
         "monthly_commitments_cents": monthly_commitments_cents,
         "commitments_period_cents": commitments_period_cents,
-        "months_in_period": months_in_period,
-        "interest_savings_cents": interest_savings_cents,
+        "days_in_period": days_in_period,
         "by_entity": {str(k): v for k, v in by_entity.items()},
         "by_income_type": dict(sorted(by_income_source.items(), key=lambda x: -x[1])),
         "by_month": dict(sorted(by_month.items())),

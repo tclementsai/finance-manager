@@ -26,9 +26,23 @@ function monthBounds() {
   return { label: today.toLocaleString("default", { month: "long" }), start: `${y}-${m}-01`, end: `${y}-${m}-${lastDay}` };
 }
 
-type Period = "month" | "fy0" | "fy-1";
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function weekBounds() {
+  // Current week, Monday → Sunday.
+  const today = new Date();
+  const dow = (today.getDay() + 6) % 7; // 0 = Monday
+  const monday = new Date(today); monday.setDate(today.getDate() - dow);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  return { label: "This week", start: ymd(monday), end: ymd(sunday) };
+}
+
+type Period = "week" | "month" | "fy0" | "fy-1";
 
 function periodBounds(p: Period) {
+  if (p === "week") return weekBounds();
   if (p === "month") return monthBounds();
   if (p === "fy-1") return fyLabel(-1);
   return fyLabel(0);
@@ -52,6 +66,13 @@ export default function Dashboard() {
   const [payOpen, setPayOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [drillDown, setDrillDown] = useState<string | null>(null);
+  const [savingsPct, setSavingsPct] = useState<number>(() => {
+    try { return Number(localStorage.getItem("savings-pct") || "0"); } catch { return 0; }
+  });
+  function updateSavingsPct(pct: number) {
+    setSavingsPct(pct);
+    try { localStorage.setItem("savings-pct", String(pct)); } catch {}
+  }
 
   // All transactions for the period — used for drill-down panels
   const allTxnsUrl = withEntity(
@@ -73,6 +94,13 @@ export default function Dashboard() {
 
   if (error) return <Err />;
   if (!data) return <div className="text-muted">Loading…</div>;
+
+  // Only set aside savings from money that's actually available. When available
+  // is negative (e.g. a short period whose income is below its commitments) the
+  // slider must not "improve" the figure by shrinking a negative number.
+  const availableCents = data.available_to_spend_cents;
+  const savingsSetAside = Math.round(Math.max(availableCents, 0) * savingsPct / 100);
+  const availableAfterSavings = availableCents - savingsSetAside;
 
   const viewingBusiness = data.viewing_business;
   const businessEntities = (entities || []).filter((e: any) => e.kind === "business");
@@ -109,8 +137,8 @@ export default function Dashboard() {
           <button className="btn-ghost" onClick={() => setPayOpen(!payOpen)}>Pay yourself</button>
           {/* Period selector */}
           <div className="flex rounded-lg overflow-hidden border border-border text-sm">
-            {(["month", "fy0", "fy-1"] as Period[]).map((p) => {
-              const labels: Record<Period, string> = { month: "This month", fy0: fyLabel(0).label, "fy-1": fyLabel(-1).label };
+            {(["week", "month", "fy0", "fy-1"] as Period[]).map((p) => {
+              const labels: Record<Period, string> = { week: "This week", month: "This month", fy0: fyLabel(0).label, "fy-1": fyLabel(-1).label };
               return (
                 <button
                   key={p}
@@ -149,10 +177,30 @@ export default function Dashboard() {
               sub="excl. internal transfers"
               onClick={() => setDrillDown(drillDown === "expenses" ? null : "expenses")}
               active={drillDown === "expenses"} />
-            <Stat label="Available to spend" value={money(data.available_to_spend_cents)} tone="accent" big
-              sub={`Tax: ${money(data.tax_setaside_cents)} · Commitments: ${money(data.monthly_commitments_cents || 0)}/mo`}
+            <Stat
+              label="Available to spend"
+              value={money(availableAfterSavings)}
+              tone="accent" big
+              sub={`Tax: ${money(data.tax_setaside_cents)} · Commitments: ${money(data.commitments_period_cents ?? data.monthly_commitments_cents ?? 0)}${savingsPct > 0 ? ` · Saving: ${money(savingsSetAside)}` : ""}`}
               onClick={() => setDrillDown(drillDown === "available" ? null : "available")}
               active={drillDown === "available"} />
+          </div>
+
+          {/* Savings allocation */}
+          <div className="card flex items-center gap-4 py-3 mb-4">
+            <span className="text-sm text-muted whitespace-nowrap">Allocate to savings</span>
+            <input
+              type="range" min={0} max={80} step={5}
+              value={savingsPct}
+              onChange={(e) => updateSavingsPct(Number(e.target.value))}
+              className="flex-1 accent-accent"
+            />
+            <span className="text-sm font-medium text-accent w-12 text-right">{savingsPct}%</span>
+            {savingsPct > 0 && (
+              <span className="text-sm text-muted">
+                = {money(savingsSetAside)} set aside
+              </span>
+            )}
           </div>
 
           {/* Stat drill-down */}
@@ -495,6 +543,10 @@ function StatDrillDown({ type, txns, summary, categories, onClose }: any) {
           <div className="flex justify-between py-2 border-b border-border">
             <span className="text-muted">minus Tax set aside</span>
             <span className="text-warn">− {money(summary.tax_setaside_cents)}</span>
+          </div>
+          <div className="flex justify-between py-2 border-b border-border">
+            <span className="text-muted">minus Commitments (this period)</span>
+            <span className="text-bad">− {money(summary.commitments_period_cents ?? summary.monthly_commitments_cents ?? 0)}</span>
           </div>
           <div className="flex justify-between py-2 font-medium text-base">
             <span>Available to spend</span>

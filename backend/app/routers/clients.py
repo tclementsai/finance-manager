@@ -22,6 +22,17 @@ def create_client(body: schemas.ClientIn, db: Session = Depends(get_db)):
     return c
 
 
+@router.put("/{cid}", response_model=schemas.ClientOut)
+def update_client(cid: int, body: schemas.ClientIn, db: Session = Depends(get_db)):
+    c = db.get(models.Client, cid)
+    if not c:
+        raise HTTPException(404, "Not found")
+    for k, v in body.model_dump().items():
+        setattr(c, k, v)
+    db.commit(); db.refresh(c)
+    return c
+
+
 @router.delete("/{cid}")
 def delete_client(cid: int, db: Session = Depends(get_db)):
     c = db.get(models.Client, cid)

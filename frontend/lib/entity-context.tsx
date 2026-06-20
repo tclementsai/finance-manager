@@ -10,17 +10,16 @@ type EntityCtx = {
 const Ctx = createContext<EntityCtx>({ selected: "all", setSelected: () => {} });
 
 export function EntityProvider({ children }: { children: React.ReactNode }) {
-  const [selected, setSelectedState] = useState<number | "all">("all");
+  // Always default to "all income" on load. The selection still applies while
+  // navigating within a session, but never persists a stuck business filter
+  // that makes the dashboard/transactions look empty after invoicing.
+  const [selected, setSelected] = useState<number | "all">("all");
 
+  // Clear any previously-persisted selection from older builds so it can't
+  // re-stick the filter on future loads.
   useEffect(() => {
-    const saved = localStorage.getItem("ledger.entity");
-    if (saved) setSelectedState(saved === "all" ? "all" : Number(saved));
+    localStorage.removeItem("ledger.entity");
   }, []);
-
-  const setSelected = (v: number | "all") => {
-    setSelectedState(v);
-    localStorage.setItem("ledger.entity", String(v));
-  };
 
   return <Ctx.Provider value={{ selected, setSelected }}>{children}</Ctx.Provider>;
 }
