@@ -195,6 +195,18 @@ class Commitment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class InvestmentBalance(Base):
+    """Current balance per investment platform/method (e.g. Raiz, Stake, Super)."""
+    __tablename__ = "investment_balances"
+    id = Column(Integer, primary_key=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=False)
+    platform = Column(String, nullable=False)   # e.g. "Raiz", "Stake", "CommSec"
+    method = Column(String, nullable=True)       # e.g. "ETF", "Shares", "Managed Fund"
+    balance_cents = Column(Integer, default=0)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Holding(Base):
     __tablename__ = "holdings"
     id = Column(Integer, primary_key=True)

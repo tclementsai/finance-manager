@@ -113,6 +113,19 @@ def set_category(tx_id: int, body: dict, db: Session = Depends(get_db)):
     return {"id": tx.id, "category_id": tx.category_id}
 
 
+@router.patch("/{tx_id}/entity")
+def set_entity(tx_id: int, body: dict, db: Session = Depends(get_db)):
+    tx = db.get(models.Transaction, tx_id)
+    if not tx:
+        raise HTTPException(404, "Transaction not found")
+    entity_id = body.get("entity_id")
+    if not entity_id:
+        raise HTTPException(400, "entity_id required")
+    tx.entity_id = int(entity_id)
+    db.commit()
+    return {"id": tx.id, "entity_id": tx.entity_id}
+
+
 @router.patch("/{tx_id}/deductible")
 def set_deductible(tx_id: int, body: dict, db: Session = Depends(get_db)):
     tx = db.get(models.Transaction, tx_id)
@@ -254,3 +267,38 @@ def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Transaction not found")
     db.delete(tx); db.commit()
     return {"ok": True}
+
+
+@router.post("/{tx_id}/receipt", response_model=schemas.TransactionOut)
+async def attach_receipt(tx_id: int, db: Session = Depends(get_db)):
+    """Upload a receipt file and link it to this transaction."""
+    import os, uuid
+    from fastapi import File, UploadFile
+    from ..services.ocr import ocr_image
+    from ..config import get_settings
+    # This endpoint is hit via multipart — re-import here to avoid circular dep
+    raise HTTPException(501, "Use POST /api/receipts then PATCH /{tx_id}/receipt/{receipt_id}")
+
+
+@router.patch("/{tx_id}/receipt/{receipt_id}", response_model=schemas.TransactionOut)
+def link_receipt(tx_id: int, receipt_id: int, db: Session = Depends(get_db)):
+    """Link an already-uploaded receipt to a transaction."""
+    tx = db.get(models.Transaction, tx_id)
+    if not tx:
+        raise HTTPException(404, "Transaction not found")
+    receipt = db.get(models.Receipt, receipt_id)
+    if not receipt:
+        raise HTTPException(404, "Receipt not found")
+    tx.receipt_id = receipt_id
+    db.commit(); db.refresh(tx)
+    return tx
+
+
+@router.delete("/{tx_id}/receipt", response_model=schemas.TransactionOut)
+def unlink_receipt(tx_id: int, db: Session = Depends(get_db)):
+    tx = db.get(models.Transaction, tx_id)
+    if not tx:
+        raise HTTPException(404, "Transaction not found")
+    tx.receipt_id = None
+    db.commit(); db.refresh(tx)
+    return tx

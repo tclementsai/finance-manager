@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/networth", tags=["networth"])
 # Category → display label. Order here drives display order on the page.
 ASSET_CATEGORIES = {
     "bank": "Bank accounts",
+    "super": "Superannuation",
     "shares": "Shares",
     "crypto": "Crypto",
     "vehicle": "Vehicles",
@@ -29,11 +30,15 @@ def _kind(category: str) -> str:
 
 
 def _bank_live_cents(db: Session) -> int:
-    """Sum of all tracked bank/cash account balances (e.g. synced from UP)."""
     accounts = db.query(models.Account).filter(
         models.Account.type.in_(["bank", "cash", "everyday", "savings"])
     ).all()
     return sum(a.balance_cents or 0 for a in accounts)
+
+
+def _investment_live_cents(db: Session) -> int:
+    balances = db.query(models.InvestmentBalance).all()
+    return sum(b.balance_cents or 0 for b in balances)
 
 
 def _serialize(item: models.NetWorthItem) -> schemas.NetWorthItemOut:
@@ -53,6 +58,7 @@ def list_items(db: Session = Depends(get_db)):
 def summary(db: Session = Depends(get_db)):
     items = db.query(models.NetWorthItem).all()
     bank_live = _bank_live_cents(db)
+    investment_live = _investment_live_cents(db)
 
     # Group manual items by category.
     by_cat: dict[str, list[models.NetWorthItem]] = {}
@@ -73,6 +79,12 @@ def summary(db: Session = Depends(get_db)):
                     id=-1, name="Bank accounts (live)", category="bank",
                     value_cents=bank_live, kind="asset",
                 ))
+        if cat == "shares" and investment_live:
+            total += investment_live
+            out_items.insert(0, schemas.NetWorthItemOut(
+                id=-2, name="Investment balances (live)", category="shares",
+                value_cents=investment_live, kind="asset",
+            ))
         if not out_items:
             continue
         groups.append(schemas.NetWorthGroup(

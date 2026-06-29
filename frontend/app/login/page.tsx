@@ -29,63 +29,70 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm">
-        {/* Logo / brand */}
-        <div className="text-center mb-8">
-          <div className="text-3xl font-bold text-gray-900">Ledger</div>
-          <div className="text-sm text-gray-500 mt-1">Personal &amp; Business Finance Manager</div>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-full max-w-sm px-4">
+
+        {/* Brand */}
+        <div className="text-center mb-10">
+          <div className="text-4xl font-bold text-white tracking-tight">Ledger</div>
+          <div className="text-sm text-muted mt-1">Personal &amp; Business Finance</div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        {/* Glass card */}
+        <div className="card p-8">
           {/* Tabs */}
-          <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1">
+          <div className="flex gap-1 mb-7 bg-panel rounded-lg p-1">
             {(["login", "register"] as const).map((t) => (
               <button key={t} onClick={() => { setTab(t); setError(""); }}
                 className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  tab === t
+                    ? "bg-panel2 text-white shadow-sm border border-border"
+                    : "text-muted hover:text-white"
                 }`}>
-                {t === "login" ? "Sign In" : "Create Account"}
+                {t === "login" ? "Sign In" : "Register"}
               </button>
             ))}
           </div>
 
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+              <label className="stat-label block mb-1">Username</label>
               <input
                 type="text" autoFocus autoComplete="username"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                className="input"
                 placeholder="your-username"
-                value={username} onChange={(e) => setUsername(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+              <label className="stat-label block mb-1">Password</label>
               <input
-                type="password" autoComplete={tab === "register" ? "new-password" : "current-password"}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                type="password"
+                autoComplete={tab === "register" ? "new-password" : "current-password"}
+                className="input"
                 placeholder={tab === "register" ? "Min. 6 characters" : "••••••••"}
-                value={password} onChange={(e) => setPassword(e.target.value)}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+              <div className="text-bad text-sm bg-bad/10 border border-bad/20 rounded-lg px-3 py-2">
                 {error}
               </div>
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors">
+              className="btn w-full justify-center py-2.5 mt-2 disabled:opacity-50">
               {loading ? "…" : tab === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs text-muted mt-6">
           Self-hosted · Your data stays on your server
         </p>
       </div>

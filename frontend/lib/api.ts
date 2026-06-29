@@ -10,14 +10,7 @@ function authHeaders(): Record<string, string> {
 
 export const fetcher = (url: string) =>
   fetch(url, { headers: authHeaders() }).then((r) => {
-    if (r.status === 401) {
-      // Token expired — clear and reload to trigger login
-      localStorage.removeItem("ledger.token");
-      localStorage.removeItem("ledger.userId");
-      localStorage.removeItem("ledger.username");
-      window.location.href = "/login";
-      return null;
-    }
+    if (r.status === 401) return null;
     return r.json();
   });
 
@@ -31,13 +24,6 @@ export async function api(path: string, opts: RequestInit = {}) {
     ...opts,
   });
   if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem("ledger.token");
-      localStorage.removeItem("ledger.userId");
-      localStorage.removeItem("ledger.username");
-      window.location.href = "/login";
-      throw new Error("Session expired");
-    }
     const body = await res.text();
     let message = body;
     try {

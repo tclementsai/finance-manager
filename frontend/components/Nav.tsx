@@ -14,6 +14,7 @@ const links = [
   ["/import", "Import CSV"],
   ["/receipts", "Receipts"],
   ["/commitments", "Commitments"],
+  ["/pnl", "P&L"],
   ["/deductions", "Deductions"],
   ["/invoices", "Invoices"],
   ["/clients", "Clients"],

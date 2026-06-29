@@ -44,9 +44,19 @@ def _lightweight_migrate():
     }
     existing_txns = {c["name"] for c in insp.get_columns("transactions")}
     txn_additions = {
+        "income_type": "VARCHAR",
+        "tax_withheld_cents": "INTEGER DEFAULT 0",
+        "gst_cents": "INTEGER DEFAULT 0",
+        "is_deductible": "BOOLEAN DEFAULT 0",
+        "business_use_pct": "INTEGER DEFAULT 100",
+        "source": "VARCHAR DEFAULT 'manual'",
+        "external_id": "VARCHAR",
         "is_recurring": "BOOLEAN DEFAULT 0",
         "recurrence_freq": "VARCHAR",
         "recurring_override": "BOOLEAN DEFAULT 0",
+        "receipt_id": "INTEGER REFERENCES receipts(id)",
+        "created_at": "DATETIME",
+        "account_id": "INTEGER REFERENCES accounts(id)",
     }
     existing_clients = {c["name"] for c in insp.get_columns("clients")}
     client_additions = {

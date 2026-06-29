@@ -69,9 +69,21 @@ export default function Connections() {
       <section className="mb-8">
         <div className="stat-label mb-3">Live connections</div>
         <div className="flex flex-col gap-3">
-          {[...personalEntities, ...businessEntities].map((entity: any) => (
-            <UpCard key={entity.id} entity={entity} liveAccounts={liveAccounts} />
-          ))}
+          {[...personalEntities, ...businessEntities].map((entity: any, idx: number) => {
+            const allEntities = [...personalEntities, ...businessEntities];
+            const anyConnected = allEntities.some((e: any) => e.up_connected);
+            // Only show the token input on the first not-yet-connected card
+            const firstUnconnectedIdx = allEntities.findIndex((e: any) => !e.up_connected);
+            return (
+              <UpCard
+                key={entity.id}
+                entity={entity}
+                liveAccounts={liveAccounts}
+                anyConnected={anyConnected}
+                showTokenInput={!entity.up_connected && !anyConnected && idx === firstUnconnectedIdx}
+              />
+            );
+          })}
           {entities?.length === 0 && (
             <div className="text-muted text-sm">No entities yet — create one in Businesses &amp; accounts first.</div>
           )}
@@ -180,7 +192,7 @@ export default function Connections() {
 }
 
 // ── UP Banking card per entity ─────────────────────────────────────────────────
-function UpCard({ entity, liveAccounts }: { entity: any; liveAccounts: any[] }) {
+function UpCard({ entity, liveAccounts, anyConnected, showTokenInput }: { entity: any; liveAccounts: any[]; anyConnected: boolean; showTokenInput: boolean }) {
   const connected = !!entity.up_connected;
   const [token, setToken] = useState("");
   const [tokenErr, setTokenErr] = useState("");
@@ -388,7 +400,7 @@ function UpCard({ entity, liveAccounts }: { entity: any; liveAccounts: any[] }) 
         </div>
       )}
 
-      {!connected && (
+      {!connected && showTokenInput && (
         <div className="mt-3">
           <p className="text-xs text-muted mb-2">
             Get your token in the UP app: <b>Profile → Data Sharing → Personal Access Token</b>

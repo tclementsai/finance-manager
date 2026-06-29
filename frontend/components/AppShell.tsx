@@ -21,11 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [ready, token, isLoginPage, router]);
 
   if (!ready) return null;
-
-  if (isLoginPage) {
-    return <>{children}</>;
-  }
-
+  if (isLoginPage) return <>{children}</>;
   if (!token) return null;
 
   return (
