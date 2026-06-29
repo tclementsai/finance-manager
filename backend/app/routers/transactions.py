@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..auth import get_current_user, get_user_entity_ids
 from ..services.recurring_detector import detect_and_mark
 
-# Monthly multiplier for each frequency
 FREQ_TO_MONTHLY = {
     "weekly":      52 / 12,
     "fortnightly": 26 / 12,
@@ -31,9 +31,13 @@ def list_transactions(
     end: date | None = None,
     limit: int = 500,
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    q = db.query(models.Transaction)
+    eids = get_user_entity_ids(current_user, db)
+    q = db.query(models.Transaction).filter(models.Transaction.entity_id.in_(eids))
     if entity_id:
+        if entity_id not in eids:
+            raise HTTPException(403, "Forbidden")
         q = q.filter_by(entity_id=entity_id)
     if direction:
         q = q.filter_by(direction=direction)
@@ -47,26 +51,36 @@ def list_transactions(
 
 
 @router.post("", response_model=schemas.TransactionOut)
-def create_transaction(body: schemas.TransactionIn, db: Session = Depends(get_db)):
+def create_transaction(
+    body: schemas.TransactionIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    if body.entity_id not in eids:
+        raise HTTPException(403, "Forbidden")
     tx = models.Transaction(**body.model_dump())
     db.add(tx); db.commit(); db.refresh(tx)
     return tx
 
 
 @router.post("/drawing")
-def pay_yourself(body: dict, db: Session = Depends(get_db)):
-    """Record a drawing: money paid from a business to your personal account.
-
-    Body: {from_entity_id, to_entity_id, amount_cents, date?, description?}
-    Creates an outflow on the business and a matching personal `drawing` inflow.
-    Only the drawing counts toward personal income / available-to-spend.
-    """
+def pay_yourself(
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Record a drawing: money paid from a business to your personal account."""
     from_id = int(body["from_entity_id"])
     to_id = int(body["to_entity_id"])
     cents = int(body["amount_cents"])
     when = body.get("date") or str(date.today())
     when = date.fromisoformat(when) if isinstance(when, str) else when
     label = body.get("description") or "Owner drawing"
+
+    eids = get_user_entity_ids(current_user, db)
+    if from_id not in eids or to_id not in eids:
+        raise HTTPException(403, "Forbidden")
 
     biz = db.get(models.Entity, from_id)
     personal = db.get(models.Entity, to_id)
@@ -88,9 +102,15 @@ def pay_yourself(body: dict, db: Session = Depends(get_db)):
 
 
 @router.patch("/{tx_id}", response_model=schemas.TransactionOut)
-def update_transaction(tx_id: int, body: schemas.TransactionIn, db: Session = Depends(get_db)):
+def update_transaction(
+    tx_id: int,
+    body: schemas.TransactionIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     tx = db.get(models.Transaction, tx_id)
-    if not tx:
+    if not tx or tx.entity_id not in eids:
         raise HTTPException(404, "Transaction not found")
     for k, v in body.model_dump().items():
         setattr(tx, k, v)
@@ -104,9 +124,15 @@ class RecurringPatch(BaseModel):
 
 
 @router.patch("/{tx_id}/category")
-def set_category(tx_id: int, body: dict, db: Session = Depends(get_db)):
+def set_category(
+    tx_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     tx = db.get(models.Transaction, tx_id)
-    if not tx:
+    if not tx or tx.entity_id not in eids:
         raise HTTPException(404, "Transaction not found")
     tx.category_id = body.get("category_id") or None
     db.commit()
@@ -114,9 +140,15 @@ def set_category(tx_id: int, body: dict, db: Session = Depends(get_db)):
 
 
 @router.patch("/{tx_id}/deductible")
-def set_deductible(tx_id: int, body: dict, db: Session = Depends(get_db)):
+def set_deductible(
+    tx_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     tx = db.get(models.Transaction, tx_id)
-    if not tx:
+    if not tx or tx.entity_id not in eids:
         raise HTTPException(404, "Transaction not found")
     tx.is_deductible = bool(body.get("is_deductible"))
     db.commit()
@@ -124,27 +156,31 @@ def set_deductible(tx_id: int, body: dict, db: Session = Depends(get_db)):
 
 
 @router.patch("/{tx_id}/recurring", response_model=schemas.TransactionOut)
-def set_recurring(tx_id: int, body: RecurringPatch, db: Session = Depends(get_db)):
+def set_recurring(
+    tx_id: int,
+    body: RecurringPatch,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     tx = db.get(models.Transaction, tx_id)
-    if not tx:
+    if not tx or tx.entity_id not in eids:
         raise HTTPException(404, "Transaction not found")
     tx.is_recurring = body.is_recurring
     tx.recurrence_freq = body.recurrence_freq if body.is_recurring else None
 
     if not body.is_recurring:
-        # User explicitly removed this — lock the whole description group so
-        # the auto-detector never re-adds it
         desc = (tx.description or "").strip().lower()
         if desc:
             siblings = db.query(models.Transaction).filter(
-                models.Transaction.description.ilike(desc)
+                models.Transaction.description.ilike(desc),
+                models.Transaction.entity_id.in_(eids),
             ).all()
             for s in siblings:
                 s.is_recurring = False
                 s.recurrence_freq = None
                 s.recurring_override = True
     else:
-        # User manually re-enabled — clear the override
         tx.recurring_override = False
 
     db.commit(); db.refresh(tx)
@@ -158,20 +194,24 @@ class CategoriseIn(BaseModel):
 
 
 @router.post("/categorise")
-def categorise_by_description(body: CategoriseIn, db: Session = Depends(get_db)):
-    """Assign a category to every transaction (past + future) matching a description.
-
-    Also upserts a Rule so future syncs apply the same category automatically.
-    """
+def categorise_by_description(
+    body: CategoriseIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     cat = db.get(models.Category, body.category_id)
     if not cat:
         raise HTTPException(404, "Category not found")
 
     desc_lower = body.description.strip().lower()
     q = db.query(models.Transaction).filter(
-        models.Transaction.description.ilike(f"%{desc_lower}%")
+        models.Transaction.description.ilike(f"%{desc_lower}%"),
+        models.Transaction.entity_id.in_(eids),
     )
     if body.entity_id:
+        if body.entity_id not in eids:
+            raise HTTPException(403, "Forbidden")
         q = q.filter_by(entity_id=body.entity_id)
 
     updated = 0
@@ -180,7 +220,6 @@ def categorise_by_description(body: CategoriseIn, db: Session = Depends(get_db))
             tx.category_id = body.category_id
             updated += 1
 
-    # Upsert a rule so future imports are categorised automatically
     existing_rule = db.query(models.Rule).filter_by(
         match_field="description", match_op="contains", match_value=desc_lower
     ).first()
@@ -192,7 +231,7 @@ def categorise_by_description(body: CategoriseIn, db: Session = Depends(get_db))
             match_op="contains",
             match_value=desc_lower,
             set_category_id=body.category_id,
-            priority=5,  # high priority — user-defined rules run before auto rules
+            priority=5,
         ))
 
     db.commit()
@@ -200,26 +239,38 @@ def categorise_by_description(body: CategoriseIn, db: Session = Depends(get_db))
 
 
 @router.post("/detect-recurring")
-def detect_recurring(entity_id: Optional[int] = None, db: Session = Depends(get_db)):
-    """Scan transaction history and auto-mark recurring patterns."""
+def detect_recurring(
+    entity_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    if entity_id and entity_id not in eids:
+        raise HTTPException(403, "Forbidden")
     result = detect_and_mark(db, entity_id=entity_id)
     return result
 
 
 @router.get("/recurring")
-def list_recurring(entity_id: Optional[int] = None, db: Session = Depends(get_db)):
-    """Return all recurring expenses grouped by description with projected monthly cost."""
+def list_recurring(
+    entity_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     q = db.query(models.Transaction).filter(
         models.Transaction.is_recurring == True,  # noqa: E712
         models.Transaction.direction == "out",
+        models.Transaction.entity_id.in_(eids),
     )
     if entity_id:
+        if entity_id not in eids:
+            raise HTTPException(403, "Forbidden")
         q = q.filter_by(entity_id=entity_id)
     txns = q.order_by(models.Transaction.date.desc()).all()
 
     cat_names = {c.id: c.name for c in db.query(models.Category).all()}
 
-    # Group by description — keep the latest occurrence as representative
     seen: dict[str, dict] = {}
     for tx in txns:
         key = (tx.description or "").strip().lower()
@@ -248,9 +299,14 @@ def list_recurring(entity_id: Optional[int] = None, db: Session = Depends(get_db
 
 
 @router.delete("/{tx_id}")
-def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
+def delete_transaction(
+    tx_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     tx = db.get(models.Transaction, tx_id)
-    if not tx:
+    if not tx or tx.entity_id not in eids:
         raise HTTPException(404, "Transaction not found")
     db.delete(tx); db.commit()
     return {"ok": True}

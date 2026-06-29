@@ -1,11 +1,12 @@
 import os
 import uuid
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..config import get_settings
 from ..database import get_db
+from ..auth import get_current_user
 from ..services.ocr import ocr_image
 
 router = APIRouter(prefix="/api/receipts", tags=["receipts"])
@@ -13,12 +14,24 @@ settings = get_settings()
 
 
 @router.get("", response_model=list[schemas.ReceiptOut])
-def list_receipts(db: Session = Depends(get_db)):
-    return db.query(models.Receipt).order_by(models.Receipt.created_at.desc()).all()
+def list_receipts(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return (
+        db.query(models.Receipt)
+        .filter_by(user_id=current_user.id)
+        .order_by(models.Receipt.created_at.desc())
+        .all()
+    )
 
 
 @router.post("", response_model=schemas.ReceiptOut)
-async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_receipt(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     os.makedirs(settings.upload_dir, exist_ok=True)
     content = await file.read()
     ext = os.path.splitext(file.filename or "")[1] or ".bin"
@@ -28,6 +41,6 @@ async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get
         f.write(content)
 
     parsed = ocr_image(content, file.content_type or "application/octet-stream")
-    receipt = models.Receipt(file_path=path, **parsed)
+    receipt = models.Receipt(file_path=path, user_id=current_user.id, **parsed)
     db.add(receipt); db.commit(); db.refresh(receipt)
     return receipt

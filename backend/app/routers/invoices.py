@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..auth import get_current_user, get_user_entity_ids
 from ..services import stripe_service
 
 router = APIRouter(prefix="/api/invoices", tags=["invoices"])
@@ -30,23 +31,42 @@ def _recalc(invoice: models.Invoice, entity: models.Entity):
 
 
 @router.get("", response_model=list[schemas.InvoiceOut])
-def list_invoices(entity_id: int | None = None, db: Session = Depends(get_db)):
-    q = db.query(models.Invoice)
+def list_invoices(
+    entity_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    q = db.query(models.Invoice).filter(models.Invoice.entity_id.in_(eids))
     if entity_id:
+        if entity_id not in eids:
+            raise HTTPException(403, "Forbidden")
         q = q.filter_by(entity_id=entity_id)
     return q.order_by(models.Invoice.created_at.desc()).all()
 
 
 @router.get("/{inv_id}", response_model=schemas.InvoiceOut)
-def get_invoice(inv_id: int, db: Session = Depends(get_db)):
+def get_invoice(
+    inv_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     inv = db.get(models.Invoice, inv_id)
-    if not inv:
+    if not inv or inv.entity_id not in eids:
         raise HTTPException(404, "Not found")
     return inv
 
 
 @router.post("", response_model=schemas.InvoiceOut)
-def create_invoice(body: schemas.InvoiceIn, db: Session = Depends(get_db)):
+def create_invoice(
+    body: schemas.InvoiceIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    if body.entity_id not in eids:
+        raise HTTPException(403, "Forbidden")
     entity = db.get(models.Entity, body.entity_id)
     if not entity:
         raise HTTPException(404, "Entity not found")
@@ -68,9 +88,14 @@ def create_invoice(body: schemas.InvoiceIn, db: Session = Depends(get_db)):
 
 
 @router.post("/{inv_id}/send", response_model=schemas.InvoiceOut)
-def send_invoice(inv_id: int, db: Session = Depends(get_db)):
+def send_invoice(
+    inv_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     inv = db.get(models.Invoice, inv_id)
-    if not inv:
+    if not inv or inv.entity_id not in eids:
         raise HTTPException(404, "Not found")
     client = db.get(models.Client, inv.client_id) if inv.client_id else None
     entity = db.get(models.Entity, inv.entity_id)
@@ -83,9 +108,14 @@ def send_invoice(inv_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{inv_id}/mark-paid", response_model=schemas.InvoiceOut)
-def mark_paid(inv_id: int, db: Session = Depends(get_db)):
+def mark_paid(
+    inv_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
     inv = db.get(models.Invoice, inv_id)
-    if not inv:
+    if not inv or inv.entity_id not in eids:
         raise HTTPException(404, "Not found")
     _mark_invoice_paid(db, inv)
     db.commit(); db.refresh(inv)

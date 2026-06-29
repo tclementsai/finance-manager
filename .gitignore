@@ -12,3 +12,4 @@ next-env.d.ts
 .DS_Store
 Thumbs.db
 ledger-backend.pem
+*graphify-out

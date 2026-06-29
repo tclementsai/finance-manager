@@ -11,6 +11,7 @@ from sqlalchemy import inspect, text
 from .config import get_settings
 from .database import Base, engine, SessionLocal
 from . import models
+from .auth import hash_password, verify_password, create_token, get_current_user
 from .routers import (
     entities, accounts, transactions, categories, imports,
     receipts, clients, invoices, investments, dashboard, up_banking, commitments,
@@ -52,12 +53,53 @@ def _lightweight_migrate():
     client_additions = {
         "phone": "VARCHAR",
     }
+    existing_nwi = {c["name"] for c in insp.get_columns("net_worth_items")} if "net_worth_items" in set(insp.get_table_names()) else set()
+    existing_receipts = {c["name"] for c in insp.get_columns("receipts")} if "receipts" in set(insp.get_table_names()) else set()
     existing_invoices = {c["name"] for c in insp.get_columns("invoices")}
     invoice_additions = {
         "deposit_cents": "INTEGER",
         "deposit_pct": "FLOAT",
         "reminder_freq": "VARCHAR",
     }
+    # Users table and entity ownership (added for multi-user auth)
+    existing_tables = set(insp.get_table_names())
+    with engine.begin() as conn:
+        if "users" not in existing_tables:
+            conn.execute(text(
+                "CREATE TABLE users ("
+                "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "  email VARCHAR NOT NULL UNIQUE,"
+                "  password_hash VARCHAR NOT NULL,"
+                "  name VARCHAR DEFAULT '',"
+                "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                ")"
+            ))
+        if "entities" in existing_tables and "user_id" not in existing_entities:
+            conn.execute(text("ALTER TABLE entities ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+            # Seed a default admin user from the existing APP_PASSWORD and assign all
+            # existing entities to them so no data is orphaned after this migration.
+            admin_email = "admin@ledger.local"
+            existing_admin = conn.execute(
+                text("SELECT id FROM users WHERE email = :e"), {"e": admin_email}
+            ).fetchone()
+            if existing_admin:
+                admin_id = existing_admin[0]
+            else:
+                pw_hash = hash_password(settings.app_password)
+                conn.execute(
+                    text("INSERT INTO users (email, password_hash, name) VALUES (:e, :p, :n)"),
+                    {"e": admin_email, "p": pw_hash, "n": "Admin"},
+                )
+                admin_id = conn.execute(text("SELECT last_insert_rowid()")).scalar()
+            conn.execute(
+                text("UPDATE entities SET user_id = :uid WHERE user_id IS NULL"),
+                {"uid": admin_id},
+            )
+            logger.info(
+                "Migration: created admin user (%s) and assigned existing entities. "
+                "Login with email '%s' and your APP_PASSWORD.",
+                admin_id, admin_email,
+            )
     with engine.begin() as conn:
         for col, ddl in entity_additions.items():
             if col not in existing_entities:
@@ -74,6 +116,10 @@ def _lightweight_migrate():
         for col, ddl in invoice_additions.items():
             if col not in existing_invoices:
                 conn.execute(text(f"ALTER TABLE invoices ADD COLUMN {col} {ddl}"))
+        if "net_worth_items" in existing_tables and "user_id" not in existing_nwi:
+            conn.execute(text("ALTER TABLE net_worth_items ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+        if "receipts" in existing_tables and "user_id" not in existing_receipts:
+            conn.execute(text("ALTER TABLE receipts ADD COLUMN user_id INTEGER REFERENCES users(id)"))
 
 
 _lightweight_migrate()
@@ -81,7 +127,7 @@ _lightweight_migrate()
 
 async def _hourly_up_sync():
     """Background task: sync all UP-connected entities once per hour."""
-    from .routers.up_banking import sync as _sync, SyncIn
+    from .routers.up_banking import _do_sync as _sync, SyncIn
 
     INTERVAL = 3600  # seconds
     await asyncio.sleep(60)  # short initial delay so the server is fully up
@@ -140,11 +186,39 @@ def health():
 
 @app.post("/api/login")
 def login(payload: dict):
-    """Trivial single-user auth: returns a token if the password matches.
-    Swap for real session/JWT before exposing beyond localhost."""
-    if payload.get("password") != settings.app_password:
-        raise HTTPException(401, "Invalid password")
-    return {"token": settings.secret_key}
+    db = SessionLocal()
+    try:
+        user = db.query(models.User).filter_by(email=payload.get("email", "")).first()
+        if not user or not verify_password(payload.get("password", ""), user.password_hash):
+            raise HTTPException(401, "Invalid email or password")
+        return {"token": create_token(user.id), "name": user.name, "email": user.email}
+    finally:
+        db.close()
+
+
+@app.post("/api/signup")
+def signup(payload: dict):
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
+    name = (payload.get("name") or "").strip()
+    if not email or not password:
+        raise HTTPException(400, "Email and password are required")
+    db = SessionLocal()
+    try:
+        if db.query(models.User).filter_by(email=email).first():
+            raise HTTPException(409, "An account with that email already exists")
+        user = models.User(email=email, password_hash=hash_password(password), name=name)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return {"token": create_token(user.id), "name": user.name, "email": user.email}
+    finally:
+        db.close()
+
+
+@app.get("/api/me")
+def me(current_user: models.User = Depends(get_current_user)):
+    return {"id": current_user.id, "email": current_user.email, "name": current_user.name}
 
 
 for r in (entities, accounts, transactions, categories, imports,

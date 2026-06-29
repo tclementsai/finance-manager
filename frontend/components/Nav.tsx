@@ -60,6 +60,16 @@ export function Nav() {
         className={`nav-link mt-2 ${path === "/businesses" ? "nav-link-active" : ""}`}>
         ⚙ Manage businesses
       </Link>
+
+      <button
+        onClick={() => {
+          localStorage.removeItem("ledger-token");
+          window.location.href = "/login";
+        }}
+        className="nav-link mt-1 text-left text-muted hover:text-white w-full"
+      >
+        Sign out
+      </button>
     </aside>
   );
 }

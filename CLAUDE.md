@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Backend
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate  # macOS/Linux
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env  # edit secrets
 python -m app.seed    # optional demo data
@@ -52,9 +52,9 @@ Auth is a trivial single-password check returning a static token (set `APP_PASSW
 Schema migrations for SQLite are handled inline in `main.py` via `_lightweight_migrate()` (ALTER TABLE). For Postgres, use Alembic.
 
 ### Frontend (`frontend/`)
-- `app/` — Next.js App Router pages (one page per feature area)
-- `components/` — shared UI components
-- `lib/api.ts` — API client helpers
+- `app/` — Next.js App Router pages. Routes: `/` (dashboard), `/transactions`, `/import`, `/invoices`, `/clients`, `/receipts`, `/deductions`, `/investments`, `/networth`, `/commitments`, `/recurring`, `/connections`, `/businesses`
+- `components/Nav.tsx` — sidebar nav; `components/BusinessProfile.tsx`, `components/UpBanking.tsx`
+- `lib/api.ts` — `api(path, opts)` fetch wrapper (surfaces FastAPI `detail` errors); `money(cents)` → AUD locale string; `moneyShort(cents)` → compact `$0` format
 - `lib/entity-context.tsx` — global entity filter context. `useEntity()` returns `selected` (a business `id` or `"all"`). Use `withEntity(path, selected)` to append `?entity_id=` to API calls. Entity selection is **session-only** (never persisted to localStorage).
 
 ### Key domain concepts
@@ -70,3 +70,10 @@ Schema migrations for SQLite are handled inline in `main.py` via `_lightweight_m
 - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` — real Stripe invoicing
 - `OCR_PROVIDER=docai` + `DOC_AI_PROCESSOR` — Google Document AI for receipts (falls back to local heuristic)
 - **UP Banking** — token stored per entity in `up_api_token`; syncs automatically every hour
+
+## Deployment
+- **Railway** — backend via `railway.toml` (Dockerfile build, healthcheck at `/api/health`)
+- **AWS** — EC2 t2.micro (backend, port 8077) + Amplify (frontend); see `docs/DEPLOY-AWS.md`
+
+## Skills
+- `/graphify .` — installed globally; builds a code graph of the codebase

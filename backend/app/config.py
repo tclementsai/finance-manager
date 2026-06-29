@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # ALLOWED_ORIGINS=http://localhost:3000,https://myapp.example.com
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    jwt_secret: str = "change-this-jwt-secret"
+    jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
+
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
 
@@ -27,7 +30,11 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     def is_using_defaults(self) -> bool:
-        return self.app_password == "changeme" or self.secret_key == "dev-secret-change-me"
+        return (
+            self.app_password == "changeme"
+            or self.secret_key == "dev-secret-change-me"
+            or self.jwt_secret == "change-this-jwt-secret"
+        )
 
 
 @lru_cache

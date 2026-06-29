@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..auth import get_current_user, get_user_entity_ids
 from ..services.rules_engine import apply_rules
 
 # keyword → category name mapping for auto-categorisation
@@ -64,19 +65,38 @@ router = APIRouter(prefix="/api", tags=["categories & rules"])
 
 
 @router.get("/categories", response_model=list[schemas.CategoryOut])
-def list_categories(db: Session = Depends(get_db)):
-    return db.query(models.Category).all()
+def list_categories(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    # Return global categories (entity_id IS NULL) plus this user's entity-specific ones
+    from sqlalchemy import or_
+    return db.query(models.Category).filter(
+        or_(models.Category.entity_id.is_(None), models.Category.entity_id.in_(eids))
+    ).all()
 
 
 @router.post("/categories", response_model=schemas.CategoryOut)
-def create_category(body: schemas.CategoryIn, db: Session = Depends(get_db)):
+def create_category(
+    body: schemas.CategoryIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if body.entity_id is not None:
+        eids = get_user_entity_ids(current_user, db)
+        if body.entity_id not in eids:
+            raise HTTPException(403, "Forbidden")
     c = models.Category(**body.model_dump())
     db.add(c); db.commit(); db.refresh(c)
     return c
 
 
 @router.post("/categories/auto-categorise")
-def auto_categorise(db: Session = Depends(get_db)):
+def auto_categorise(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Seed keyword rules for common categories and apply them to all transactions."""
     created_cats = 0
     created_rules = 0
@@ -108,10 +128,12 @@ def auto_categorise(db: Session = Depends(get_db)):
 
     db.commit()
 
-    # Apply all rules to every uncategorised expense transaction
+    # Apply all rules to every uncategorised expense transaction for this user
+    eids = get_user_entity_ids(current_user, db)
     txns = db.query(models.Transaction).filter(
         models.Transaction.direction == "out",
         models.Transaction.category_id.is_(None),
+        models.Transaction.entity_id.in_(eids),
     ).all()
     for tx in txns:
         before = tx.category_id
@@ -128,28 +150,47 @@ def auto_categorise(db: Session = Depends(get_db)):
 
 
 @router.delete("/categories/{cid}")
-def delete_category(cid: int, db: Session = Depends(get_db)):
+def delete_category(
+    cid: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     c = db.get(models.Category, cid)
     if not c:
         raise HTTPException(404, "Not found")
+    if c.entity_id is not None:
+        eids = get_user_entity_ids(current_user, db)
+        if c.entity_id not in eids:
+            raise HTTPException(403, "Forbidden")
     db.delete(c); db.commit()
     return {"ok": True}
 
 
 @router.get("/rules", response_model=list[schemas.RuleOut])
-def list_rules(db: Session = Depends(get_db)):
+def list_rules(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     return db.query(models.Rule).order_by(models.Rule.priority).all()
 
 
 @router.post("/rules", response_model=schemas.RuleOut)
-def create_rule(body: schemas.RuleIn, db: Session = Depends(get_db)):
+def create_rule(
+    body: schemas.RuleIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     r = models.Rule(**body.model_dump())
     db.add(r); db.commit(); db.refresh(r)
     return r
 
 
 @router.delete("/rules/{rid}")
-def delete_rule(rid: int, db: Session = Depends(get_db)):
+def delete_rule(
+    rid: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     r = db.get(models.Rule, rid)
     if not r:
         raise HTTPException(404, "Not found")

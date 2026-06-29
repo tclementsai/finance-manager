@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..crypto import encrypt, decrypt, is_encrypted
 from ..database import get_db
+from ..auth import get_current_user, get_user_entity_ids
 
 router = APIRouter(prefix="/api/up", tags=["up"])
 
@@ -37,7 +38,9 @@ def _raise_for_up(resp: httpx.Response) -> None:
     raise HTTPException(resp.status_code, resp.text)
 
 
-def _get_token(entity_id: int, db: Session) -> str:
+def _get_token(entity_id: int, db: Session, user_entity_ids: list[int] | None = None) -> str:
+    if user_entity_ids is not None and entity_id not in user_entity_ids:
+        raise HTTPException(403, "Forbidden")
     entity = db.query(models.Entity).filter_by(id=entity_id).first()
     if not entity or not entity.up_api_token:
         raise HTTPException(400, "No UP Banking token saved for this entity.")
@@ -118,7 +121,11 @@ class SyncIn(BaseModel):
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/connect")
-def connect(body: ConnectIn, db: Session = Depends(get_db)):
+def connect(
+    body: ConnectIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Validate and save an UP personal access token to an entity."""
     try:
         resp = httpx.get(f"{UP_BASE}/util/ping", headers=_up_headers(body.token), timeout=10)
@@ -130,8 +137,9 @@ def connect(body: ConnectIn, db: Session = Depends(get_db)):
     if not resp.is_success:
         raise HTTPException(502, f"UP API returned {resp.status_code}.")
 
+    eids = get_user_entity_ids(current_user, db)
     entity = db.query(models.Entity).filter_by(id=body.entity_id).first()
-    if not entity:
+    if not entity or entity.id not in eids:
         raise HTTPException(404, "Entity not found.")
 
     entity.up_api_token = encrypt(body.token)
@@ -144,7 +152,7 @@ def connect(body: ConnectIn, db: Session = Depends(get_db)):
     sync_result: dict = {}
     try:
         accounts_created = _provision_accounts(body.entity_id, body.token, db)
-        sync_result = sync(SyncIn(entity_id=body.entity_id), db)
+        sync_result = _do_sync(SyncIn(entity_id=body.entity_id), db)
     except HTTPException as e:
         sync_result = {"error": e.detail}
 
@@ -157,10 +165,15 @@ def connect(body: ConnectIn, db: Session = Depends(get_db)):
 
 
 @router.delete("/connect/{entity_id}")
-def disconnect(entity_id: int, db: Session = Depends(get_db)):
+def disconnect(
+    entity_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Remove the saved UP token from an entity."""
+    eids = get_user_entity_ids(current_user, db)
     entity = db.query(models.Entity).filter_by(id=entity_id).first()
-    if not entity:
+    if not entity or entity.id not in eids:
         raise HTTPException(404, "Entity not found.")
     entity.up_api_token = None
     db.commit()
@@ -168,9 +181,14 @@ def disconnect(entity_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/accounts/{entity_id}")
-def list_up_accounts(entity_id: int, db: Session = Depends(get_db)):
+def list_up_accounts(
+    entity_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Return all UP accounts for this entity's saved token."""
-    token = _get_token(entity_id, db)
+    eids = get_user_entity_ids(current_user, db)
+    token = _get_token(entity_id, db, eids)
     try:
         resp = httpx.get(f"{UP_BASE}/accounts", headers=_up_headers(token), timeout=10)
     except httpx.RequestError as e:
@@ -200,10 +218,15 @@ def list_up_accounts(entity_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/link")
-def link_account(body: LinkAccountIn, db: Session = Depends(get_db)):
+def link_account(
+    body: LinkAccountIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Link a local account to an UP Banking account ID."""
+    eids = get_user_entity_ids(current_user, db)
     account = db.query(models.Account).filter_by(id=body.account_id).first()
-    if not account:
+    if not account or account.entity_id not in eids:
         raise HTTPException(404, "Local account not found.")
     account.up_account_id = body.up_account_id
     db.commit()
@@ -211,10 +234,15 @@ def link_account(body: LinkAccountIn, db: Session = Depends(get_db)):
 
 
 @router.post("/unlink/{account_id}")
-def unlink_account(account_id: int, db: Session = Depends(get_db)):
+def unlink_account(
+    account_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Remove the UP account link from a local account."""
+    eids = get_user_entity_ids(current_user, db)
     account = db.query(models.Account).filter_by(id=account_id).first()
-    if not account:
+    if not account or account.entity_id not in eids:
         raise HTTPException(404, "Local account not found.")
     account.up_account_id = None
     db.commit()
@@ -222,7 +250,10 @@ def unlink_account(account_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/backfill-transfers")
-def backfill_transfers(db: Session = Depends(get_db)):
+def backfill_transfers(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Retroactively mark existing UP transactions that are internal transfers.
 
     UP internal transfers have descriptions like 'Transfer to Save', 'Round Up', etc.
@@ -252,8 +283,10 @@ def backfill_transfers(db: Session = Depends(get_db)):
 
     # Match any transaction that came from UP (external_id starts with "up:")
     # regardless of source field value or existing category, so older imports work too.
+    eids = get_user_entity_ids(current_user, db)
     up_txns = db.query(models.Transaction).filter(
         models.Transaction.external_id.like("up:%"),
+        models.Transaction.entity_id.in_(eids),
     ).all()
 
     INTEREST_KEYWORDS = ("interest", "interest payment", "savings interest")
@@ -279,9 +312,8 @@ def backfill_transfers(db: Session = Depends(get_db)):
     return {"marked": marked, "interest_tagged": interest_tagged}
 
 
-@router.post("/sync")
-def sync(body: SyncIn, db: Session = Depends(get_db)):
-    """Fetch and import transactions for all UP-linked accounts under an entity."""
+def _do_sync(body: SyncIn, db: Session) -> dict:
+    """Internal sync — no auth check (used by background task)."""
     token = _get_token(body.entity_id, db)
 
     linked_accounts = db.query(models.Account).filter(
@@ -405,3 +437,16 @@ def sync(body: SyncIn, db: Session = Depends(get_db)):
         "skipped": skipped,
         "pending": pending,
     }
+
+
+@router.post("/sync")
+def sync(
+    body: SyncIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Fetch and import transactions for all UP-linked accounts under an entity."""
+    eids = get_user_entity_ids(current_user, db)
+    if body.entity_id not in eids:
+        raise HTTPException(403, "Forbidden")
+    return _do_sync(body, db)

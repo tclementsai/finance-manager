@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..auth import get_current_user, get_user_entity_ids
 
 router = APIRouter(prefix="/api/networth", tags=["networth"])
 
-# Category → display label. Order here drives display order on the page.
 ASSET_CATEGORIES = {
     "bank": "Bank accounts",
     "shares": "Shares",
@@ -28,10 +28,10 @@ def _kind(category: str) -> str:
     return "liability" if category in LIABILITY_CATEGORIES else "asset"
 
 
-def _bank_live_cents(db: Session) -> int:
-    """Sum of all tracked bank/cash account balances (e.g. synced from UP)."""
+def _bank_live_cents(db: Session, eids: list[int]) -> int:
     accounts = db.query(models.Account).filter(
-        models.Account.type.in_(["bank", "cash", "everyday", "savings"])
+        models.Account.entity_id.in_(eids),
+        models.Account.type.in_(["bank", "cash", "everyday", "savings"]),
     ).all()
     return sum(a.balance_cents or 0 for a in accounts)
 
@@ -44,24 +44,33 @@ def _serialize(item: models.NetWorthItem) -> schemas.NetWorthItemOut:
 
 
 @router.get("", response_model=list[schemas.NetWorthItemOut])
-def list_items(db: Session = Depends(get_db)):
-    items = db.query(models.NetWorthItem).order_by(models.NetWorthItem.category).all()
+def list_items(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    items = (
+        db.query(models.NetWorthItem)
+        .filter(models.NetWorthItem.user_id == current_user.id)
+        .order_by(models.NetWorthItem.category)
+        .all()
+    )
     return [_serialize(i) for i in items]
 
 
 @router.get("/summary", response_model=schemas.NetWorthSummary)
-def summary(db: Session = Depends(get_db)):
-    items = db.query(models.NetWorthItem).all()
-    bank_live = _bank_live_cents(db)
+def summary(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    items = db.query(models.NetWorthItem).filter_by(user_id=current_user.id).all()
+    bank_live = _bank_live_cents(db, eids)
 
-    # Group manual items by category.
     by_cat: dict[str, list[models.NetWorthItem]] = {}
     for it in items:
         by_cat.setdefault(it.category, []).append(it)
 
     groups: list[schemas.NetWorthGroup] = []
-    # Emit every known category in display order; include the live bank balance
-    # as a synthetic, read-only line under "bank".
     for cat, label in LABELS.items():
         members = by_cat.get(cat, [])
         out_items = [_serialize(m) for m in members]
@@ -91,17 +100,26 @@ def summary(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=schemas.NetWorthItemOut)
-def create_item(body: schemas.NetWorthItemIn, db: Session = Depends(get_db)):
+def create_item(
+    body: schemas.NetWorthItemIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     if body.category not in LABELS:
         raise HTTPException(400, f"Unknown category '{body.category}'.")
-    item = models.NetWorthItem(**body.model_dump())
+    item = models.NetWorthItem(**body.model_dump(), user_id=current_user.id)
     db.add(item); db.commit(); db.refresh(item)
     return _serialize(item)
 
 
 @router.put("/{item_id}", response_model=schemas.NetWorthItemOut)
-def update_item(item_id: int, body: schemas.NetWorthItemIn, db: Session = Depends(get_db)):
-    item = db.get(models.NetWorthItem, item_id)
+def update_item(
+    item_id: int,
+    body: schemas.NetWorthItemIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.NetWorthItem).filter_by(id=item_id, user_id=current_user.id).first()
     if not item:
         raise HTTPException(404, "Not found")
     if body.category not in LABELS:
@@ -113,8 +131,12 @@ def update_item(item_id: int, body: schemas.NetWorthItemIn, db: Session = Depend
 
 
 @router.delete("/{item_id}")
-def delete_item(item_id: int, db: Session = Depends(get_db)):
-    item = db.get(models.NetWorthItem, item_id)
+def delete_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    item = db.query(models.NetWorthItem).filter_by(id=item_id, user_id=current_user.id).first()
     if not item:
         raise HTTPException(404, "Not found")
     db.delete(item); db.commit()

@@ -8,28 +8,21 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..config import get_settings
 from ..database import get_db
+from ..auth import get_current_user, get_user_entity_ids
 from ..tax import fy_bounds, estimate_tax_setaside, income_tax, MEDICARE_LEVY
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 settings = get_settings()
 
-# income_type classification for the tax engine (PERSONAL, cash-basis)
-TAXED_TYPES = {"payroll"}                          # PAYG already withheld
-# Money that reaches you personally and is personally taxable but had no
-# withholding — interest, dividends, and drawings taken from your businesses.
+TAXED_TYPES = {"payroll"}
 UNTAXED_TYPES = {"interest", "dividend", "drawing"}
 
 
 def _normalise_income_label(desc: str) -> str:
-    """Strip trailing dates, reference numbers and punctuation so similar income sources group together."""
-    # Remove anything after ' — ' or ' - ' (UP Banking appends messages with em-dash)
     desc = re.split(r"\s*[—–]\s*", desc)[0]
-    # Strip trailing date-like patterns: Jan 25, June 2025, 01/06/25, 2025-06-01 etc.
     desc = re.sub(r"\s+\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?$", "", desc)
     desc = re.sub(r"\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*\d{2,4}$", "", desc, flags=re.I)
-    # Strip trailing standalone numbers / reference codes (6+ digits)
     desc = re.sub(r"\s+\d{6,}$", "", desc)
-    # Strip trailing whitespace and punctuation
     desc = desc.strip(" .,;:-")
     return desc[:40] or "Other"
 
@@ -40,23 +33,24 @@ def _fy(start, end):
     return fy_bounds()
 
 
-@router.get("/summary")
-def summary(
-    start: date | None = None,
-    end: date | None = None,
-    flat_rate: float | None = None,
-    entity_id: int | None = None,
-    db: Session = Depends(get_db),
+def _summary_for_user(
+    start: date,
+    end: date,
+    flat_rate,
+    entity_id,
+    db: Session,
+    user_entity_ids: list[int],
 ):
-    start, end = _fy(start, end)
+    """Core summary logic — always scoped to user_entity_ids."""
     q = db.query(models.Transaction).filter(
-        models.Transaction.date >= start, models.Transaction.date <= end
+        models.Transaction.date >= start,
+        models.Transaction.date <= end,
+        models.Transaction.entity_id.in_(user_entity_ids),
     )
     if entity_id:
         q = q.filter(models.Transaction.entity_id == entity_id)
     txs = q.all()
 
-    # Exclude internal UP transfers (they inflate both income and expenses)
     transfer_cat_ids = {
         c.id for c in db.query(models.Category).filter(
             models.Category.name.in_(["Internal Transfer", "Transfer Income"])
@@ -64,26 +58,27 @@ def summary(
     }
     txs = [t for t in txs if t.category_id not in transfer_cat_ids]
 
-    kinds = {e.id: e.kind for e in db.query(models.Entity).all()}
+    kinds = {
+        e.id: e.kind
+        for e in db.query(models.Entity).filter(models.Entity.id.in_(user_entity_ids)).all()
+    }
     is_personal = lambda t: kinds.get(t.entity_id) == "personal"
     is_business = lambda t: kinds.get(t.entity_id) == "business"
 
-    # Only count income into spending/everyday accounts — not savings or investments.
-    # Transactions without an account_id (manual entries) are treated as spending.
-    acct_types = {a.id: a.type for a in db.query(models.Account).all()}
+    acct_types = {a.id: a.type for a in db.query(models.Account).filter(
+        models.Account.entity_id.in_(user_entity_ids)
+    ).all()}
     is_spending_acct = lambda t: acct_types.get(t.account_id, "everyday") not in ("savings", "investment")
 
     income_total = sum(t.amount_cents for t in txs if t.direction == "in")
     expense_total = sum(t.amount_cents for t in txs if t.direction == "out")
 
-    # ---- Personal side (cash basis: only money into the spending account) ----
     personal_income = sum(t.amount_cents for t in txs
                           if t.direction == "in" and is_personal(t) and is_spending_acct(t))
     personal_expenses = sum(t.amount_cents for t in txs if t.direction == "out" and is_personal(t))
     drawings = sum(t.amount_cents for t in txs
                    if t.direction == "in" and is_personal(t) and is_spending_acct(t) and t.income_type == "drawing")
 
-    # Interest from any personal account (savings included — it's genuinely earned)
     interest_income = sum(t.amount_cents for t in txs
                           if t.direction == "in" and is_personal(t) and (
                               t.income_type == "interest" or
@@ -97,17 +92,14 @@ def summary(
     untaxed_income = sum(t.amount_cents for t in txs
                          if t.direction == "in" and is_personal(t) and is_spending_acct(t) and t.income_type in UNTAXED_TYPES)
 
-    # ---- Business side (gross — NOT personal until drawn) ----
     business_income = sum(t.amount_cents for t in txs if t.direction == "in" and is_business(t))
-    # Operating expenses exclude owner drawings (drawings are a cash transfer, not a cost).
     business_expenses = sum(t.amount_cents for t in txs
                             if t.direction == "out" and is_business(t) and t.income_type != "drawing")
     drawings_out = sum(t.amount_cents for t in txs
                        if t.direction == "out" and is_business(t) and t.income_type == "drawing")
-    business_net = business_income - business_expenses                 # profit
-    business_retained = business_net - drawings_out                    # cash left in the business
+    business_net = business_income - business_expenses
+    business_retained = business_net - drawings_out
 
-    # GST is a business concern
     gst_collected = sum(t.gst_cents or 0 for t in txs if t.direction == "in" and is_business(t))
     gst_credits = sum(t.gst_cents or 0 for t in txs
                       if t.direction == "out" and is_business(t) and t.is_deductible)
@@ -115,7 +107,6 @@ def summary(
 
     rate = flat_rate if flat_rate is not None else None
 
-    # Monthly recurring commitments (personal entity only)
     FREQ_TO_MONTHLY = {
         "weekly": 52 / 12, "fortnightly": 26 / 12,
         "monthly": 1.0, "quarterly": 1 / 3, "annual": 1 / 12,
@@ -123,11 +114,11 @@ def summary(
     recurring_q = db.query(models.Transaction).filter(
         models.Transaction.is_recurring == True,  # noqa: E712
         models.Transaction.direction == "out",
+        models.Transaction.entity_id.in_(user_entity_ids),
     )
     if entity_id:
         recurring_q = recurring_q.filter(models.Transaction.entity_id == entity_id)
     else:
-        # Only personal recurring when no specific entity selected
         recurring_q = recurring_q.filter(
             models.Transaction.entity_id.in_([eid for eid, k in kinds.items() if k == "personal"])
         )
@@ -139,14 +130,9 @@ def summary(
             seen_recurring[key] = int(round(rt.amount_cents * FREQ_TO_MONTHLY.get(freq, 1.0)))
     monthly_commitments_cents = sum(seen_recurring.values())
 
-    # Prorate the monthly commitments to the actual length of the selected
-    # period so a short window (e.g. one week) is charged its share, not a full
-    # month. Uses the average month length (30.44 days).
     days_in_period = max(1, (end - start).days + 1)
     commitments_period_cents = int(round(monthly_commitments_cents * days_in_period / 30.44))
 
-    # If the view is filtered to a single BUSINESS entity, present a business P&L
-    # view; otherwise present the personal "what's actually mine to spend" view.
     viewing_business = bool(entity_id) and kinds.get(entity_id) == "business"
 
     if viewing_business:
@@ -167,7 +153,6 @@ def summary(
 
     cat_names = {c.id: c.name for c in db.query(models.Category).all()}
     by_entity = defaultdict(lambda: {"in": 0, "out": 0})
-    # Use lowercase key for grouping, store display label separately
     _income_source_totals: dict[str, int] = defaultdict(int)
     _income_source_labels: dict[str, str] = {}
     by_month = defaultdict(lambda: {"in": 0, "out": 0})
@@ -224,20 +209,36 @@ def summary(
     }
 
 
+@router.get("/summary")
+def summary(
+    start: date | None = None,
+    end: date | None = None,
+    flat_rate: float | None = None,
+    entity_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    start, end = _fy(start, end)
+    eids = get_user_entity_ids(current_user, db)
+    return _summary_for_user(start, end, flat_rate, entity_id, db, eids)
+
+
 @router.get("/deductions")
 def deduction_report(
     entity_id: int | None = None,
     start: date | None = None,
     end: date | None = None,
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    """EOFY deduction report grouped by ATO category."""
     start, end = _fy(start, end)
+    eids = get_user_entity_ids(current_user, db)
     q = db.query(models.Transaction).filter(
         models.Transaction.direction == "out",
         models.Transaction.is_deductible == True,  # noqa: E712
         models.Transaction.date >= start,
         models.Transaction.date <= end,
+        models.Transaction.entity_id.in_(eids),
     )
     if entity_id:
         q = q.filter(models.Transaction.entity_id == entity_id)
@@ -275,13 +276,16 @@ def tax_pack(
     end: date | None = None,
     entity_id: int | None = None,
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    """EOFY tax pack: income by type, estimated tax, GST, CGT."""
     start, end = _fy(start, end)
-    s = summary(start, end, None, entity_id, db)
+    eids = get_user_entity_ids(current_user, db)
+    s = _summary_for_user(start, end, None, entity_id, db, eids)
 
     cq = db.query(models.CgtEvent).filter(
-        models.CgtEvent.date >= start, models.CgtEvent.date <= end
+        models.CgtEvent.date >= start,
+        models.CgtEvent.date <= end,
+        models.CgtEvent.entity_id.in_(eids),
     )
     if entity_id:
         cq = cq.filter(models.CgtEvent.entity_id == entity_id)
