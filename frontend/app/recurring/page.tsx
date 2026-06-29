@@ -160,8 +160,8 @@ export default function Recurring() {
           or add one manually above.
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full">
+        <div className="card p-0 overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[560px]">
             <thead>
               <tr>
                 <th className="th">Description</th>

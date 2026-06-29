@@ -215,8 +215,8 @@ export default function Transactions() {
         </button>
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full">
+      <div className="card p-0 overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead><tr>
             <th className="th">Date</th>
             <th className="th">Entity</th>

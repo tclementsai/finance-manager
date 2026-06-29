@@ -28,7 +28,7 @@ body {
 @layer components {
   /* Liquid-glass card: translucent, blurred backdrop with a bright top edge. */
   .card {
-    @apply rounded-xl p-5;
+    @apply rounded-xl p-4 md:p-5;
     background: rgba(22, 27, 38, 0.42);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
@@ -38,7 +38,7 @@ body {
       inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
   .stat-label { @apply text-muted text-xs uppercase tracking-wide; }
-  .stat-value { @apply text-2xl font-semibold mt-1; }
+  .stat-value { @apply text-xl md:text-2xl font-semibold mt-1; }
   .btn { @apply bg-accent text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition; }
   .btn-ghost { @apply bg-panel2 border border-border px-3 py-2 rounded-lg text-sm hover:border-accent transition; }
   .btn-danger { @apply bg-bad/20 border border-bad/40 text-bad px-3 py-2 rounded-lg text-sm font-medium hover:bg-bad/30 transition; }
@@ -49,4 +49,6 @@ body {
   .td { @apply py-2 px-3 border-t border-border text-sm; }
   .nav-link { @apply px-3 py-2 rounded-lg text-sm text-muted hover:text-white hover:bg-panel2 transition; }
   .nav-link-active { @apply bg-panel2 text-white; }
+  /* Tables scroll horizontally on small screens */
+  .table-wrap { @apply w-full overflow-x-auto -mx-0; }
 }
