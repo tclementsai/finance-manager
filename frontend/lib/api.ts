@@ -8,6 +8,8 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
+
 export const fetcher = (url: string) =>
   fetch(url, { headers: authHeaders() }).then((r) => {
     if (r.status === 401) return null;
@@ -15,7 +17,8 @@ export const fetcher = (url: string) =>
   });
 
 export async function api(path: string, opts: RequestInit = {}) {
-  const res = await fetch(path, {
+  const target = path.startsWith("http") ? path : `${API_URL}${path}`;
+  const res = await fetch(target, {
     headers: {
       "Content-Type": "application/json",
       ...authHeaders(),
