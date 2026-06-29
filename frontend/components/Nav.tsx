@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetcher } from "@/lib/api";
 import { useEntity } from "@/lib/entity-context";
+import { useAuth } from "@/lib/auth-context";
 
 const links = [
   ["/", "Dashboard"],
@@ -22,14 +23,29 @@ const links = [
 
 export function Nav() {
   const path = usePathname();
+  const router = useRouter();
   const { data: entities } = useSWR("/api/entities", fetcher);
   const { selected, setSelected } = useEntity();
+  const { username, logout } = useAuth();
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
 
   return (
     <aside className="w-56 shrink-0 border-r border-border bg-panel p-4 flex flex-col">
       <div className="px-3 py-2 mb-3">
         <div className="text-lg font-semibold">Ledger</div>
         <div className="text-xs text-muted">Finance Manager</div>
+        {username && (
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-xs text-muted truncate">{username}</span>
+            <button onClick={handleLogout} className="text-xs text-muted hover:text-bad ml-1 shrink-0">
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Business switcher */}

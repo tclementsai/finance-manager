@@ -1,7 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Nav } from "@/components/Nav";
+import { AuthProvider } from "@/lib/auth-context";
 import { EntityProvider } from "@/lib/entity-context";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Ledger — Finance Manager",
@@ -12,12 +13,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <EntityProvider>
-          <div className="flex min-h-screen">
-            <Nav />
-            <main className="flex-1 p-8 max-w-[1400px]">{children}</main>
-          </div>
-        </EntityProvider>
+        <AuthProvider>
+          <EntityProvider>
+            <AppShell>{children}</AppShell>
+          </EntityProvider>
+        </AuthProvider>
       </body>
     </html>
   );

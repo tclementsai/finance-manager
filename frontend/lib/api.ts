@@ -1,13 +1,44 @@
-export const fetcher = (url: string) => fetch(url).then((r) => r.json());
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("ledger.token");
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export const fetcher = (url: string) =>
+  fetch(url, { headers: authHeaders() }).then((r) => {
+    if (r.status === 401) {
+      // Token expired — clear and reload to trigger login
+      localStorage.removeItem("ledger.token");
+      localStorage.removeItem("ledger.userId");
+      localStorage.removeItem("ledger.username");
+      window.location.href = "/login";
+      return null;
+    }
+    return r.json();
+  });
 
 export async function api(path: string, opts: RequestInit = {}) {
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+      ...(opts.headers || {}),
+    },
     ...opts,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem("ledger.token");
+      localStorage.removeItem("ledger.userId");
+      localStorage.removeItem("ledger.username");
+      window.location.href = "/login";
+      throw new Error("Session expired");
+    }
     const body = await res.text();
-    // FastAPI errors come back as {"detail": "..."} — surface just the message.
     let message = body;
     try {
       const parsed = JSON.parse(body);

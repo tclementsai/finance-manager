@@ -9,9 +9,18 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Entity(Base):
     __tablename__ = "entities"
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = legacy/unowned
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)          # personal | sole_trader | company
     kind = Column(String, default="business")      # personal | business

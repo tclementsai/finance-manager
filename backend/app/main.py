@@ -14,7 +14,7 @@ from . import models
 from .routers import (
     entities, accounts, transactions, categories, imports,
     receipts, clients, invoices, investments, dashboard, up_banking, commitments,
-    networth,
+    networth, auth,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,8 @@ def _lightweight_migrate():
     client_additions = {
         "phone": "VARCHAR",
     }
+    existing_users = {c["name"] for c in insp.get_columns("users")} if insp.has_table("users") else set()
+    existing_entities_cols = {c["name"] for c in insp.get_columns("entities")}
     existing_invoices = {c["name"] for c in insp.get_columns("invoices")}
     invoice_additions = {
         "deposit_cents": "INTEGER",
@@ -74,6 +76,8 @@ def _lightweight_migrate():
         for col, ddl in invoice_additions.items():
             if col not in existing_invoices:
                 conn.execute(text(f"ALTER TABLE invoices ADD COLUMN {col} {ddl}"))
+        if "user_id" not in existing_entities_cols:
+            conn.execute(text("ALTER TABLE entities ADD COLUMN user_id INTEGER REFERENCES users(id)"))
 
 
 _lightweight_migrate()
@@ -147,7 +151,7 @@ def login(payload: dict):
     return {"token": settings.secret_key}
 
 
-for r in (entities, accounts, transactions, categories, imports,
+for r in (auth, entities, accounts, transactions, categories, imports,
           receipts, clients, invoices, investments, dashboard, up_banking, commitments,
           networth):
     app.include_router(r.router)
