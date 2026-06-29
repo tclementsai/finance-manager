@@ -26,11 +26,9 @@ Base.metadata.create_all(bind=engine)
 
 
 def _lightweight_migrate():
-    """Add new columns to existing SQLite tables without dropping data."""
-    if not engine.url.drivername.startswith("sqlite"):
-        return
+    """Add new columns to existing tables without dropping data."""
     insp = inspect(engine)
-    existing_entities = {c["name"] for c in insp.get_columns("entities")}
+    existing_entities = {c["name"] for c in insp.get_columns("entities")} 
     entity_additions = {
         "kind": "VARCHAR DEFAULT 'business'",
         "email": "VARCHAR", "phone": "VARCHAR", "address": "TEXT",
@@ -47,13 +45,13 @@ def _lightweight_migrate():
         "income_type": "VARCHAR",
         "tax_withheld_cents": "INTEGER DEFAULT 0",
         "gst_cents": "INTEGER DEFAULT 0",
-        "is_deductible": "BOOLEAN DEFAULT 0",
+        "is_deductible": "BOOLEAN DEFAULT FALSE",
         "business_use_pct": "INTEGER DEFAULT 100",
         "source": "VARCHAR DEFAULT 'manual'",
         "external_id": "VARCHAR",
-        "is_recurring": "BOOLEAN DEFAULT 0",
+        "is_recurring": "BOOLEAN DEFAULT FALSE",
         "recurrence_freq": "VARCHAR",
-        "recurring_override": "BOOLEAN DEFAULT 0",
+        "recurring_override": "BOOLEAN DEFAULT FALSE",
         "receipt_id": "INTEGER REFERENCES receipts(id)",
         "created_at": "DATETIME",
         "account_id": "INTEGER REFERENCES accounts(id)",
@@ -109,6 +107,12 @@ def _lightweight_migrate():
             )
 
     with engine.begin() as conn:
+        existing_users = {c["name"] for c in insp.get_columns("users")}
+        if "totp_secret" not in existing_users:
+            conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR"))
+        if "totp_enabled" not in existing_users:
+            conn.execute(text("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE"))
+
         for col, ddl in entity_additions.items():
             if col not in existing_entities:
                 conn.execute(text(f"ALTER TABLE entities ADD COLUMN {col} {ddl}"))

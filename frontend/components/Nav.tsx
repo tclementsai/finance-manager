@@ -20,6 +20,7 @@ const links = [
   ["/clients", "Clients"],
   ["/investments", "Investments"],
   ["/networth", "Net Worth"],
+  ["/settings", "Settings"],
 ];
 
 export function Nav() {

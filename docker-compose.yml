@@ -7,6 +7,11 @@ services:
       POSTGRES_DB: ledger
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   api:
     build: ./backend
@@ -14,15 +19,26 @@ services:
       DATABASE_URL: postgresql+psycopg2://ledger:ledger@db:5432/ledger
     env_file: ./backend/.env
     ports: ["8077:8077"]
-    depends_on: [db]
+    depends_on:
+      db:
+        condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8077
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8077/api/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   web:
-    build: ./frontend
-    environment:
-      API_URL: http://api:8077
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://api:8077
     ports: ["3000:3000"]
-    depends_on: [api]
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -41,6 +41,9 @@ body {
   .stat-value { @apply text-2xl font-semibold mt-1; }
   .btn { @apply bg-accent text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition; }
   .btn-ghost { @apply bg-panel2 border border-border px-3 py-2 rounded-lg text-sm hover:border-accent transition; }
+  .btn-danger { @apply bg-bad/20 border border-bad/40 text-bad px-3 py-2 rounded-lg text-sm font-medium hover:bg-bad/30 transition; }
+  .text-good { color: #3ecf8e; }
+  .bg-good { background-color: #3ecf8e; }
   .input { @apply bg-panel2 border border-border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-accent; }
   .th { @apply text-left text-muted text-xs uppercase tracking-wide py-2 px-3; }
   .td { @apply py-2 px-3 border-t border-border text-sm; }
