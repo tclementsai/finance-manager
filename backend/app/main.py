@@ -93,6 +93,27 @@ def _lightweight_migrate():
 _lightweight_migrate()
 
 
+def _seed_accounts():
+    """Create default user accounts if they don't already exist."""
+    from .routers.auth import _hash
+    db = SessionLocal()
+    try:
+        defaults = [
+            ("trstnclements@gmail.com", "password"),
+            ("s4m.seymon@gmail.com", "password"),
+        ]
+        for username, password in defaults:
+            exists = db.query(models.User).filter_by(username=username).first()
+            if not exists:
+                db.add(models.User(username=username, password_hash=_hash(password)))
+        db.commit()
+    finally:
+        db.close()
+
+
+_seed_accounts()
+
+
 async def _hourly_up_sync():
     """Background task: sync all UP-connected entities once per hour."""
     from .routers.up_banking import sync as _sync, SyncIn
