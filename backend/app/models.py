@@ -12,9 +12,8 @@ from .database import Base
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
-    email = Column(String, unique=True, nullable=False)
+    username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    name = Column(String, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     entities = relationship("Entity", back_populates="user")
@@ -23,6 +22,7 @@ class User(Base):
 class Entity(Base):
     __tablename__ = "entities"
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # null = legacy/unowned
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)          # personal | sole_trader | company
     kind = Column(String, default="business")      # personal | business
@@ -40,7 +40,6 @@ class Entity(Base):
     payment_terms_days = Column(Integer, default=30)
     invoice_footer = Column(Text, nullable=True)
     up_api_token = Column(String, nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="entities")
@@ -156,12 +155,8 @@ class Invoice(Base):
     stripe_invoice_id = Column(String, nullable=True)
     hosted_url = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
-    # Deposit: a fixed amount (deposit_cents) OR a percentage of the total
-    # (deposit_pct, 0–100). UI enforces one or the other; deposit_due_cents
-    # resolves whichever is set.
     deposit_cents = Column(Integer, nullable=True)
     deposit_pct = Column(Float, nullable=True)
-    # How often to remind the client while unpaid: none|weekly|fortnightly|monthly
     reminder_freq = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -200,6 +195,18 @@ class Commitment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class InvestmentBalance(Base):
+    """Current balance per investment platform/method (e.g. Raiz, Stake, Super)."""
+    __tablename__ = "investment_balances"
+    id = Column(Integer, primary_key=True)
+    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=False)
+    platform = Column(String, nullable=False)   # e.g. "Raiz", "Stake", "CommSec"
+    method = Column(String, nullable=True)       # e.g. "ETF", "Shares", "Managed Fund"
+    balance_cents = Column(Integer, default=0)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Holding(Base):
     __tablename__ = "holdings"
     id = Column(Integer, primary_key=True)
@@ -207,7 +214,7 @@ class Holding(Base):
     symbol = Column(String, nullable=False)
     qty = Column(Float, default=0)
     avg_cost_cents = Column(Integer, default=0)
-    platform = Column(String, nullable=True)  # e.g. Raze
+    platform = Column(String, nullable=True)
 
 
 class CgtEvent(Base):

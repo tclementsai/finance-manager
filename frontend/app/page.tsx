@@ -168,11 +168,11 @@ export default function Dashboard() {
         <>
           {/* Personal stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <BalanceCard data={balanceData} />
             <Stat label="Personal income" value={money(data.personal_income_cents + (data.interest_income_cents || 0))} tone="good"
               sub={data.interest_income_cents > 0 ? `Incl. ${money(data.interest_income_cents)} interest` : "excl. savings & transfers"}
               onClick={() => setDrillDown(drillDown === "income" ? null : "income")}
               active={drillDown === "income"} />
+            <BalanceCard data={balanceData} />
             <Stat label="Personal expenses" value={money(data.personal_expenses_cents)}
               sub="excl. internal transfers"
               onClick={() => setDrillDown(drillDown === "expenses" ? null : "expenses")}

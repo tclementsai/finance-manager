@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 
@@ -176,6 +176,19 @@ class CommitmentIn(BaseModel):
 
 class CommitmentOut(ORM, CommitmentIn):
     id: int
+
+
+# ---- Investment Balances ----
+class InvestmentBalanceIn(BaseModel):
+    entity_id: int
+    platform: str
+    method: Optional[str] = None
+    balance_cents: int = 0
+
+
+class InvestmentBalanceOut(ORM, InvestmentBalanceIn):
+    id: int
+    updated_at: Optional[datetime] = None
 
 
 # ---- Holdings / CGT ----

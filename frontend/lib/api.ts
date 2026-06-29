@@ -1,33 +1,33 @@
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("ledger-token");
+  return localStorage.getItem("ledger.token");
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export const fetcher = (url: string) =>
-  fetch(url, {
-    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
-  }).then(async (r) => {
-    if (r.status === 401) {
-      localStorage.removeItem("ledger-token");
-      window.location.href = "/login";
-      return null;
-    }
+  fetch(url, { headers: authHeaders() }).then((r) => {
+    if (r.status === 401) return null;
     return r.json();
   });
 
 export async function api(path: string, opts: RequestInit = {}) {
-  const token = getToken();
   const res = await fetch(path, {
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...authHeaders(),
       ...(opts.headers || {}),
     },
     ...opts,
   });
   if (res.status === 401) {
     if (typeof window !== "undefined") {
-      localStorage.removeItem("ledger-token");
+      localStorage.removeItem("ledger.token");
+      localStorage.removeItem("ledger.userId");
+      localStorage.removeItem("ledger.username");
       window.location.href = "/login";
     }
     throw new Error("Not authenticated");

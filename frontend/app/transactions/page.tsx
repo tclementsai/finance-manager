@@ -6,6 +6,27 @@ import { useEntity, withEntity } from "@/lib/entity-context";
 
 const FREQS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"];
 
+async function uploadAndLinkReceipt(txId: number, file: File, onDone: () => void) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const token = typeof window !== "undefined" ? localStorage.getItem("ledger.token") : null;
+  const res = await fetch("/api/receipts", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Receipt upload failed");
+  const receipt = await res.json();
+  await fetch(`/api/transactions/${txId}/receipt/${receipt.id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  onDone();
+}
+
 const CATEGORY_COLORS = [
   "bg-[#5b8cff]/15 text-[#5b8cff]", "bg-[#3ecf8e]/15 text-[#3ecf8e]",
   "bg-[#f5a623]/15 text-[#f5a623]", "bg-[#c678ff]/15 text-[#c678ff]",
@@ -23,6 +44,7 @@ export default function Transactions() {
   const { data: entities } = useSWR("/api/entities", fetcher);
   const { data: categories } = useSWR("/api/categories", fetcher);
   const [recurringOpen, setRecurringOpen] = useState<number | null>(null);
+  const [entityOpen, setEntityOpen] = useState<number | null>(null);
   const [autoRunning, setAutoRunning] = useState(false);
   const [autoResult, setAutoResult] = useState<any>(null);
   const [form, setForm] = useState<any>({
@@ -103,6 +125,15 @@ export default function Transactions() {
       method: "PATCH",
       body: JSON.stringify({ is_deductible: !current }),
     });
+    refresh();
+  }
+
+  async function setEntity(id: number, entity_id: number) {
+    await api(`/api/transactions/${id}/entity`, {
+      method: "PATCH",
+      body: JSON.stringify({ entity_id }),
+    });
+    setEntityOpen(null);
     refresh();
   }
 
@@ -201,7 +232,15 @@ export default function Transactions() {
                 <React.Fragment key={t.id}>
                   <tr className={t.is_recurring ? "bg-accent/5" : ""}>
                     <td className="td">{t.date}</td>
-                    <td className="td text-muted text-xs">{entityName(t.entity_id)}</td>
+                    <td className="td text-xs">
+                      <button
+                        className="text-muted hover:text-accent transition-colors"
+                        title="Click to reassign entity"
+                        onClick={() => setEntityOpen(entityOpen === t.id ? null : t.id)}
+                      >
+                        {entityName(t.entity_id)} ▾
+                      </button>
+                    </td>
                     <td className="td">
                       <span>{t.description}</span>
                       {t.is_recurring && (
@@ -255,6 +294,13 @@ export default function Transactions() {
                             >
                               {t.is_deductible ? "✓ ded." : "ded.?"}
                             </button>
+                            {t.is_deductible && (
+                              <ReceiptUpload
+                                txId={t.id}
+                                hasReceipt={!!t.receipt_id}
+                                onDone={refresh}
+                              />
+                            )}
                             <button
                               className={`text-xs ${t.is_recurring ? "text-accent" : "text-muted hover:text-accent"}`}
                               onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
@@ -267,6 +313,30 @@ export default function Transactions() {
                       </div>
                     </td>
                   </tr>
+                  {entityOpen === t.id && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-2 bg-surface-2">
+                        <div className="flex items-center gap-3 text-sm flex-wrap">
+                          <span className="text-muted">Move to:</span>
+                          {(entities || []).map((e: any) => (
+                            <button
+                              key={e.id}
+                              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                                e.id === t.entity_id
+                                  ? "border-accent bg-accent/15 text-accent"
+                                  : "border-border text-muted hover:border-accent hover:text-accent"
+                              }`}
+                              onClick={() => e.id !== t.entity_id && setEntity(t.id, e.id)}
+                            >
+                              {e.name}
+                              {e.kind === "company" || e.kind === "sole_trader" ? " (business)" : " (personal)"}
+                            </button>
+                          ))}
+                          <button className="text-muted text-xs" onClick={() => setEntityOpen(null)}>cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {recurringOpen === t.id && (
                     <tr>
                       <td colSpan={6} className="px-4 py-2 bg-surface-2">
@@ -360,6 +430,47 @@ function CategoryCombo({ categories, onSelect, onCreate }: {
         </div>
       )}
     </div>
+  );
+}
+
+function ReceiptUpload({ txId, hasReceipt, onDone }: { txId: number; hasReceipt: boolean; onDone: () => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setError("");
+    try {
+      await uploadAndLinkReceipt(txId, file, onDone);
+    } catch (err: any) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <span className="relative" title={hasReceipt ? "Receipt attached" : "Upload receipt"}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+        onChange={handleFile}
+        disabled={uploading}
+      />
+      <span className={`text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+        hasReceipt
+          ? "bg-accent/15 text-accent"
+          : "text-muted hover:text-accent hover:bg-accent/10"
+      }`}>
+        {uploading ? "…" : hasReceipt ? "📎" : "📎?"}
+      </span>
+      {error && <span className="text-bad text-xs ml-1">{error}</span>}
+    </span>
   );
 }
 

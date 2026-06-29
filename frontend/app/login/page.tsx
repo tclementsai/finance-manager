@@ -1,86 +1,97 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
+  const { login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [tab, setTab] = useState<"login" | "register">("login");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true);
     try {
-      const res = await fetch("/api/login", {
+      const res = await api(`/api/auth/${tab}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data?.detail || "Login failed");
-        return;
-      }
-      localStorage.setItem("ledger-token", data.token);
+      login(res.token, res.user_id, res.username);
       router.push("/");
-    } catch {
-      setError("Could not connect to server");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally { setLoading(false); }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-white">Ledger</h1>
-          <p className="text-slate-400 text-sm mt-1">Sign in to your account</p>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-full max-w-sm px-4">
+
+        <div className="text-center mb-10">
+          <div className="text-4xl font-bold text-white tracking-tight">Ledger</div>
+          <div className="text-sm text-muted mt-1">Personal &amp; Business Finance</div>
         </div>
-        <form onSubmit={handleSubmit} className="bg-slate-900 rounded-xl p-6 space-y-4">
-          {error && (
-            <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-2 text-sm">
-              {error}
+
+        <div className="card p-8">
+          <div className="flex gap-1 mb-7 bg-panel rounded-lg p-1">
+            {(["login", "register"] as const).map((t) => (
+              <button key={t} onClick={() => { setTab(t); setError(""); }}
+                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  tab === t
+                    ? "bg-panel2 text-white shadow-sm border border-border"
+                    : "text-muted hover:text-white"
+                }`}>
+                {t === "login" ? "Sign In" : "Register"}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="stat-label block mb-1">Username</label>
+              <input
+                type="text" autoFocus autoComplete="username"
+                className="input"
+                placeholder="your-username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
             </div>
-          )}
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg py-2 text-sm font-medium transition-colors"
-          >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-          <p className="text-center text-sm text-slate-400">
-            No account?{" "}
-            <a href="/signup" className="text-blue-400 hover:text-blue-300">
-              Sign up
-            </a>
-          </p>
-        </form>
+            <div>
+              <label className="stat-label block mb-1">Password</label>
+              <input
+                type="password"
+                autoComplete={tab === "register" ? "new-password" : "current-password"}
+                className="input"
+                placeholder={tab === "register" ? "Min. 6 characters" : "••••••••"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            {error && (
+              <div className="text-bad text-sm bg-bad/10 border border-bad/20 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading}
+              className="btn w-full justify-center py-2.5 mt-2 disabled:opacity-50">
+              {loading ? "…" : tab === "login" ? "Sign In" : "Create Account"}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-xs text-muted mt-6">
+          Self-hosted · Your data stays on your server
+        </p>
       </div>
     </div>
   );

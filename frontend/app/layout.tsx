@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { AuthGuard } from "@/components/AuthGuard";
+import { AuthProvider } from "@/lib/auth-context";
 import { EntityProvider } from "@/lib/entity-context";
 import { AppShell } from "@/components/AppShell";
 
@@ -13,11 +13,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AuthGuard>
+        <AuthProvider>
           <EntityProvider>
             <AppShell>{children}</AppShell>
           </EntityProvider>
-        </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );

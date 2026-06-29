@@ -63,7 +63,7 @@ def _summary_for_user(
         for e in db.query(models.Entity).filter(models.Entity.id.in_(user_entity_ids)).all()
     }
     is_personal = lambda t: kinds.get(t.entity_id) == "personal"
-    is_business = lambda t: kinds.get(t.entity_id) == "business"
+    is_business = lambda t: kinds.get(t.entity_id) in ("business", "company", "sole_trader")
 
     acct_types = {a.id: a.type for a in db.query(models.Account).filter(
         models.Account.entity_id.in_(user_entity_ids)
@@ -133,7 +133,7 @@ def _summary_for_user(
     days_in_period = max(1, (end - start).days + 1)
     commitments_period_cents = int(round(monthly_commitments_cents * days_in_period / 30.44))
 
-    viewing_business = bool(entity_id) and kinds.get(entity_id) == "business"
+    viewing_business = bool(entity_id) and kinds.get(entity_id) in ("business", "company", "sole_trader")
 
     if viewing_business:
         setaside = estimate_tax_setaside(0, 0, max(business_net, 0) / 100, flat_rate=rate)
@@ -267,6 +267,93 @@ def deduction_report(
         "period": {"start": str(start), "end": str(end)},
         "total_deductible_cents": total,
         "by_category": groups,
+    }
+
+
+@router.get("/pnl")
+def pnl(
+    start: date | None = None,
+    end: date | None = None,
+    entity_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Business profit & loss: revenue by category, expenses by category, gross profit, net profit."""
+    start, end = _fy(start, end)
+
+    entities = db.query(models.Entity).all()
+    kinds = {e.id: e.kind for e in entities}
+    entity_names = {e.id: e.name for e in entities}
+
+    # Determine which entity ids count as "business" for this view
+    if entity_id:
+        biz_ids = {entity_id}
+    else:
+        biz_ids = {eid for eid, k in kinds.items() if k in ("business", "company", "sole_trader")}
+
+    q = db.query(models.Transaction).filter(
+        models.Transaction.date >= start,
+        models.Transaction.date <= end,
+        models.Transaction.entity_id.in_(biz_ids),
+    )
+    txs = q.all()
+
+    # Exclude internal transfers
+    transfer_cat_ids = {
+        c.id for c in db.query(models.Category).filter(
+            models.Category.name.in_(["Internal Transfer", "Transfer Income"])
+        ).all()
+    }
+    txs = [t for t in txs if t.category_id not in transfer_cat_ids]
+
+    cat_names = {c.id: c.name for c in db.query(models.Category).all()}
+
+    # Revenue by category
+    revenue_by_cat: dict[str, int] = defaultdict(int)
+    # Expenses by category
+    expenses_by_cat: dict[str, int] = defaultdict(int)
+    # Expenses by entity (for breakdown)
+    expenses_by_entity: dict[str, int] = defaultdict(int)
+
+    total_revenue = 0
+    total_expenses = 0
+    drawings_total = 0
+
+    for t in txs:
+        cat = cat_names.get(t.category_id, "Uncategorised")
+        if t.direction == "in":
+            revenue_by_cat[cat] += t.amount_cents
+            total_revenue += t.amount_cents
+        else:
+            if t.income_type == "drawing":
+                drawings_total += t.amount_cents
+            else:
+                expenses_by_cat[cat] += t.amount_cents
+                expenses_by_entity[entity_names.get(t.entity_id, "Unknown")] += t.amount_cents
+                total_expenses += t.amount_cents
+
+    gross_profit = total_revenue - total_expenses
+    net_profit = gross_profit - drawings_total
+
+    # Month-by-month P&L
+    by_month: dict[str, dict] = defaultdict(lambda: {"revenue": 0, "expenses": 0})
+    for t in txs:
+        mk = t.date.strftime("%Y-%m")
+        if t.direction == "in":
+            by_month[mk]["revenue"] += t.amount_cents
+        elif t.income_type != "drawing":
+            by_month[mk]["expenses"] += t.amount_cents
+
+    return {
+        "period": {"start": str(start), "end": str(end)},
+        "total_revenue_cents": total_revenue,
+        "total_expenses_cents": total_expenses,
+        "gross_profit_cents": gross_profit,
+        "drawings_cents": drawings_total,
+        "net_profit_cents": net_profit,
+        "revenue_by_category": dict(sorted(revenue_by_cat.items(), key=lambda x: -x[1])),
+        "expenses_by_category": dict(sorted(expenses_by_cat.items(), key=lambda x: -x[1])),
+        "expenses_by_entity": dict(sorted(expenses_by_entity.items(), key=lambda x: -x[1])),
+        "by_month": dict(sorted(by_month.items())),
     }
 
 

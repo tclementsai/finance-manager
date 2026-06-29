@@ -23,6 +23,7 @@ export default function Recurring() {
   const [form, setForm] = useState({
     description: "", amount: "", freq: "monthly",
     date: new Date().toISOString().slice(0, 10),
+    entity_id: "",
   });
   const [err, setErr] = useState("");
   const [detecting, setDetecting] = useState(false);
@@ -42,7 +43,7 @@ export default function Recurring() {
       await api("/api/transactions", {
         method: "POST",
         body: JSON.stringify({
-          entity_id: Number(defaultEntity),
+          entity_id: Number(form.entity_id || defaultEntity),
           date: form.date,
           amount_cents: cents,
           direction: "out",
@@ -126,13 +127,27 @@ export default function Recurring() {
             </select>
           </div>
         </div>
-        <div className="flex items-center gap-3 mt-3">
+        <div className="grid md:grid-cols-4 gap-3 items-end mt-3">
           <div>
             <div className="stat-label mb-1">Date (first occurrence)</div>
             <input type="date" className="input text-sm" value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </div>
-          <button className="btn mt-5">Add</button>
+          <div>
+            <div className="stat-label mb-1">Personal / Business</div>
+            <select className="input" value={form.entity_id}
+              onChange={(e) => setForm({ ...form, entity_id: e.target.value })}>
+              <option value="">— auto (current filter) —</option>
+              {(entities || []).map((e: any) => (
+                <option key={e.id} value={e.id}>
+                  {e.name} ({e.kind === "company" ? "Business" : e.kind === "sole_trader" ? "Sole trader" : "Personal"})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button className="btn">Add</button>
+          </div>
         </div>
         {err && <div className="text-bad text-xs mt-2">{err}</div>}
       </form>
@@ -150,7 +165,7 @@ export default function Recurring() {
             <thead>
               <tr>
                 <th className="th">Description</th>
-                <th className="th">Category</th>
+                <th className="th">Type</th>
                 <th className="th">Frequency</th>
                 <th className="th text-right">Per occurrence</th>
                 <th className="th text-right">Monthly equiv.</th>
@@ -158,10 +173,22 @@ export default function Recurring() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item: any) => (
+              {items.map((item: any) => {
+                const entity = (entities || []).find((e: any) => e.id === item.entity_id);
+                const kindLabel = entity?.kind === "company" ? "Business"
+                  : entity?.kind === "sole_trader" ? "Sole trader"
+                  : entity ? "Personal" : "—";
+                const kindColor = entity?.kind === "company" ? "bg-accent/20 text-accent"
+                  : entity?.kind === "sole_trader" ? "bg-warn/20 text-warn"
+                  : "bg-good/20 text-good";
+                return (
                 <tr key={item.id}>
                   <td className="td font-medium">{item.description}</td>
-                  <td className="td text-muted text-xs">{item.category}</td>
+                  <td className="td">
+                    {entity ? (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${kindColor}`}>{kindLabel}</span>
+                    ) : <span className="text-muted text-xs">—</span>}
+                  </td>
                   <td className="td">
                     <FreqBadge freq={item.recurrence_freq} />
                   </td>
@@ -174,7 +201,8 @@ export default function Recurring() {
                       className="text-xs text-muted hover:text-bad">remove</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t border-border">

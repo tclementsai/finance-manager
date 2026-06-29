@@ -4,8 +4,8 @@ import useSWR, { mutate } from "swr";
 import { fetcher, api, money } from "@/lib/api";
 
 const ASSET_CATS: [string, string][] = [
-  ["bank", "Bank accounts"], ["shares", "Shares"], ["crypto", "Crypto"],
-  ["vehicle", "Vehicles"], ["property", "Property"], ["equipment", "Equipment"],
+  ["bank", "Bank accounts"], ["super", "Superannuation"], ["shares", "Shares"],
+  ["crypto", "Crypto"], ["vehicle", "Vehicles"], ["property", "Property"], ["equipment", "Equipment"],
 ];
 const LIABILITY_CATS: [string, string][] = [
   ["loan", "Loans"], ["credit_card", "Credit cards"], ["mortgage", "Mortgages"],
@@ -50,10 +50,33 @@ export default function NetWorth() {
     if (editId === id) reset();
   }
 
+  const [superValue, setSuperValue] = useState("");
+  const [superSaving, setSuperSaving] = useState(false);
+
   const groups = sum?.groups || [];
   const assetGroups = groups.filter((g: any) => g.kind === "asset");
   const liabilityGroups = groups.filter((g: any) => g.kind === "liability");
   const nw = sum?.net_worth_cents ?? 0;
+
+  const superGroup = groups.find((g: any) => g.category === "super");
+  const superItem = superGroup?.items?.find((it: any) => it.id !== -1);
+  const superCents = superGroup?.total_cents ?? 0;
+
+  async function saveSuperBalance() {
+    if (!superValue.trim()) return;
+    setSuperSaving(true);
+    const body = JSON.stringify({
+      name: "Superannuation",
+      category: "super",
+      value_cents: Math.round(parseFloat(superValue) * 100),
+    });
+    try {
+      if (superItem) await api(`/api/networth/${superItem.id}`, { method: "PUT", body });
+      else await api("/api/networth", { method: "POST", body });
+      setSuperValue("");
+      refresh();
+    } finally { setSuperSaving(false); }
+  }
 
   return (
     <div>
@@ -75,6 +98,34 @@ export default function NetWorth() {
         <div className="card">
           <div className="stat-label">Net worth</div>
           <div className={`stat-value ${nw >= 0 ? "text-accent" : "text-bad"}`}>{money(nw)}</div>
+        </div>
+      </div>
+
+      {/* Super balance quick-entry */}
+      <div className="card mb-6 flex items-center gap-6">
+        <div className="w-10 h-10 rounded-xl bg-warn/15 flex items-center justify-center text-xl shrink-0">🔒</div>
+        <div className="flex-1">
+          <div className="stat-label mb-0.5">Superannuation balance</div>
+          <div className={`text-xl font-semibold ${superCents > 0 ? "text-warn" : "text-muted"}`}>
+            {superCents > 0 ? money(superCents) : "Not set"}
+          </div>
+          <div className="text-xs text-muted mt-0.5">Counts as an asset in your net worth</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-muted text-sm">$</span>
+          <input
+            className="input w-36 text-right"
+            type="number"
+            min="0"
+            step="100"
+            placeholder={superCents > 0 ? String((superCents / 100).toFixed(0)) : "0"}
+            value={superValue}
+            onChange={(e) => setSuperValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && saveSuperBalance()}
+          />
+          <button className="btn" onClick={saveSuperBalance} disabled={superSaving || !superValue.trim()}>
+            {superSaving ? "…" : superItem ? "Update" : "Set"}
+          </button>
         </div>
       </div>
 
