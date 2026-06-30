@@ -103,7 +103,7 @@ export default function Clients() {
           </div>
 
           {/* List */}
-          <div className="card p-0 overflow-hidden">
+          <div className="card p-0 overflow-x-auto">
             <table className="w-full">
               <thead><tr>
                 <th className="th">Name</th><th className="th">Contact</th>

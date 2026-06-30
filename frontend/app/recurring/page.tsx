@@ -161,14 +161,22 @@ export default function Recurring() {
         </div>
       ) : (
         <div className="card p-0 overflow-hidden overflow-x-auto">
-          <table className="w-full min-w-[560px]">
+          <table className="w-full table-fixed min-w-[320px]">
+            <colgroup>
+              <col />
+              <col className="w-0 sm:w-[80px]" />
+              <col className="w-[84px]" />
+              <col className="w-0 sm:w-[96px]" />
+              <col className="w-[88px]" />
+              <col className="w-[64px]" />
+            </colgroup>
             <thead>
               <tr>
                 <th className="th">Description</th>
-                <th className="th">Type</th>
-                <th className="th">Frequency</th>
-                <th className="th text-right">Per occurrence</th>
-                <th className="th text-right">Monthly equiv.</th>
+                <th className="th hidden sm:table-cell">Type</th>
+                <th className="th">Freq</th>
+                <th className="th text-right hidden sm:table-cell">Per occurrence</th>
+                <th className="th text-right">/mo</th>
                 <th className="th"></th>
               </tr>
             </thead>
@@ -183,8 +191,10 @@ export default function Recurring() {
                   : "bg-good/20 text-good";
                 return (
                 <tr key={item.id}>
-                  <td className="td font-medium">{item.description}</td>
-                  <td className="td">
+                  <td className="td font-medium max-w-0">
+                    <span className="truncate block">{item.description}</span>
+                  </td>
+                  <td className="td hidden sm:table-cell">
                     {entity ? (
                       <span className={`text-xs px-2 py-0.5 rounded-full ${kindColor}`}>{kindLabel}</span>
                     ) : <span className="text-muted text-xs">—</span>}
@@ -192,13 +202,13 @@ export default function Recurring() {
                   <td className="td">
                     <FreqBadge freq={item.recurrence_freq} />
                   </td>
-                  <td className="td text-right">{money(item.amount_cents)}</td>
-                  <td className="td text-right font-medium text-bad">
+                  <td className="td text-right hidden sm:table-cell">{money(item.amount_cents)}</td>
+                  <td className="td text-right font-medium text-bad tabular-nums">
                     {moneyShort(item.monthly_cents)}
                   </td>
                   <td className="td text-right">
                     <button onClick={() => remove(item.id)}
-                      className="text-xs text-muted hover:text-bad">remove</button>
+                      className="text-xs text-muted hover:text-bad">×</button>
                   </td>
                 </tr>
                 );
@@ -206,11 +216,11 @@ export default function Recurring() {
             </tbody>
             <tfoot>
               <tr className="border-t border-border">
-                <td colSpan={4} className="px-4 py-3 text-sm font-medium">Total</td>
-                <td className="px-4 py-3 text-right font-semibold text-bad">
+                <td colSpan={4} className="px-3 py-3 text-sm font-medium">Total</td>
+                <td className="px-3 py-3 text-right font-semibold text-bad tabular-nums">
                   {moneyShort(totalMonthly)}/mo
                 </td>
-                <td className="px-4 py-3 text-right text-muted text-xs">
+                <td className="px-3 py-3 text-right text-muted text-xs tabular-nums">
                   {moneyShort(totalAnnual)}/yr
                 </td>
               </tr>

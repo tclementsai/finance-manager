@@ -31,7 +31,7 @@ def _raise_for_up(resp: httpx.Response) -> None:
         return
     if resp.status_code == 401:
         raise HTTPException(
-            401,
+            400,
             "UP Banking rejected the saved token (expired or revoked). "
             "Generate a new Personal Access Token in the UP app and reconnect.",
         )
@@ -133,7 +133,7 @@ def connect(
         raise HTTPException(502, f"Could not reach UP Banking API: {e}")
 
     if resp.status_code == 401:
-        raise HTTPException(401, "Invalid UP Banking token.")
+        raise HTTPException(400, "Invalid UP Banking token — check that you copied it correctly.")
     if not resp.is_success:
         raise HTTPException(502, f"UP API returned {resp.status_code}.")
 

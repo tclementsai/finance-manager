@@ -102,7 +102,7 @@ export default function NetWorth() {
       </div>
 
       {/* Super balance quick-entry */}
-      <div className="card mb-6 flex items-center gap-6">
+      <div className="card mb-6 flex flex-wrap items-center gap-4">
         <div className="w-10 h-10 rounded-xl bg-warn/15 flex items-center justify-center text-xl shrink-0">🔒</div>
         <div className="flex-1">
           <div className="stat-label mb-0.5">Superannuation balance</div>

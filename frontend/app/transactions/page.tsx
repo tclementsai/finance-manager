@@ -150,7 +150,7 @@ export default function Transactions() {
     <div>
       <h1 className="text-2xl font-semibold mb-6">Transactions</h1>
 
-      <form onSubmit={add} className="card mb-6 grid md:grid-cols-7 gap-3 items-end">
+      <form onSubmit={add} className="card mb-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 items-end">
         <Field label="Entity">
           <select className="input" value={form.entity_id || defaultEntity || ""}
             onChange={(e) => setForm({ ...form, entity_id: e.target.value })}>
@@ -198,7 +198,7 @@ export default function Transactions() {
             </label>
           </Field>
         )}
-        <button className="btn h-9">Add</button>
+        <button className="btn h-9 col-span-2 md:col-span-1">Add</button>
       </form>
 
       <div className="flex items-center justify-between mb-3">
@@ -216,13 +216,21 @@ export default function Transactions() {
       </div>
 
       <div className="card p-0 overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[640px]">
+        <table className="w-full table-fixed min-w-[480px]">
+          <colgroup>
+            <col className="w-[80px]" />
+            <col className="w-[80px]" />
+            <col />
+            <col className="w-[128px]" />
+            <col className="w-[88px]" />
+            <col className="w-[80px]" />
+          </colgroup>
           <thead><tr>
-            <th className="th">Date</th>
-            <th className="th">Entity</th>
-            <th className="th">Description</th>
-            <th className="th">Category</th>
-            <th className="th text-right">Amount</th>
+            <th className="th overflow-hidden">Date</th>
+            <th className="th overflow-hidden hidden lg:table-cell">Entity</th>
+            <th className="th overflow-hidden">Description</th>
+            <th className="th overflow-hidden">Category</th>
+            <th className="th overflow-hidden text-right">Amount</th>
             <th className="th"></th>
           </tr></thead>
           <tbody>
@@ -231,34 +239,36 @@ export default function Transactions() {
               return (
                 <React.Fragment key={t.id}>
                   <tr className={t.is_recurring ? "bg-accent/5" : ""}>
-                    <td className="td">{t.date}</td>
-                    <td className="td text-xs">
+                    <td className="td text-xs tabular-nums">{t.date}</td>
+                    <td className="td text-xs hidden lg:table-cell">
                       <button
-                        className="text-muted hover:text-accent transition-colors"
+                        className="text-muted hover:text-accent transition-colors truncate max-w-full block"
                         title="Click to reassign entity"
                         onClick={() => setEntityOpen(entityOpen === t.id ? null : t.id)}
                       >
                         {entityName(t.entity_id)} ▾
                       </button>
                     </td>
-                    <td className="td">
-                      <span>{t.description}</span>
-                      {t.is_recurring && (
-                        <span className="ml-2 text-xs text-accent">↻ {t.recurrence_freq || "recurring"}</span>
-                      )}
-                      {t.is_deductible && (
-                        <span className="ml-2 text-xs text-good">✓ deductible</span>
-                      )}
+                    <td className="td max-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate">{t.description}</span>
+                        {t.is_recurring && (
+                          <span className="shrink-0 text-xs text-accent">↻</span>
+                        )}
+                        {t.is_deductible && (
+                          <span className="shrink-0 text-xs text-good">✓</span>
+                        )}
+                      </div>
                     </td>
                     <td className="td">
                       {t.direction === "out" ? (
                         cat ? (
-                          <div className="flex items-center gap-1.5 group">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${catColor(cat.name)}`}>
+                          <div className="flex items-center gap-1 group min-w-0">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full truncate min-w-0 ${catColor(cat.name)}`}>
                               {cat.name}
                             </span>
                             <button
-                              className="text-muted opacity-0 group-hover:opacity-100 text-xs hover:text-bad transition-opacity"
+                              className="shrink-0 text-muted opacity-0 group-hover:opacity-100 text-xs hover:text-bad transition-opacity"
                               title="Remove category"
                               onClick={() => setCategory(t, null)}
                             >
@@ -276,23 +286,23 @@ export default function Transactions() {
                         <span className="text-xs text-muted">{t.income_type || "income"}</span>
                       )}
                     </td>
-                    <td className={`td text-right font-medium ${t.direction === "in" ? "text-good" : "text-bad"}`}>
+                    <td className={`td text-right font-medium tabular-nums ${t.direction === "in" ? "text-good" : "text-bad"}`}>
                       {t.direction === "in" ? "+" : "−"}{money(t.amount_cents)}
                     </td>
-                    <td className="td text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="td">
+                      <div className="flex items-center justify-end gap-1.5">
                         {t.direction === "out" && (
                           <>
                             <button
-                              title={t.is_deductible ? "Remove deductible" : "Mark as tax deductible"}
-                              className={`text-xs px-1.5 py-0.5 rounded transition-colors ${
+                              title={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
+                              className={`text-xs px-1 py-0.5 rounded transition-colors ${
                                 t.is_deductible
                                   ? "bg-good/15 text-good hover:bg-bad/15 hover:text-bad"
                                   : "text-muted hover:text-good hover:bg-good/10"
                               }`}
                               onClick={() => toggleDeductible(t.id, t.is_deductible)}
                             >
-                              {t.is_deductible ? "✓ ded." : "ded.?"}
+                              {t.is_deductible ? "✓" : "ded"}
                             </button>
                             {t.is_deductible && (
                               <ReceiptUpload
@@ -394,7 +404,7 @@ function CategoryCombo({ categories, onSelect, onCreate }: {
   return (
     <div className="relative">
       <input
-        className="input text-xs w-40"
+        className="input text-xs w-full"
         placeholder="+ Add category"
         value={query}
         onFocus={() => setOpen(true)}

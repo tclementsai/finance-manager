@@ -42,16 +42,16 @@ export default function Commitments() {
         on the dashboard.
       </p>
 
-      <div className="card mb-6 grid grid-cols-12 gap-3 items-end">
-        <div className="col-span-6">
+      <div className="card mb-6 flex flex-col sm:flex-row gap-3 items-end">
+        <div className="flex-1 min-w-0">
           <div className="stat-label mb-1">Name</div>
           <input className="input" placeholder="e.g. Rent" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="col-span-4">
+        <div className="w-full sm:w-40">
           <div className="stat-label mb-1">Amount / month ($)</div>
           <input className="input" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
-        <button className="btn col-span-2 h-9" onClick={add}>Add</button>
+        <button className="btn w-full sm:w-auto h-9" onClick={add}>Add</button>
       </div>
 
       <div className="card p-0 overflow-hidden mb-4">

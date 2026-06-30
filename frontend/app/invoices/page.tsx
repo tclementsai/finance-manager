@@ -240,7 +240,7 @@ export default function Invoices() {
         </div>
       )}
 
-      <div className="card p-0 overflow-hidden">
+      <div className="card p-0 overflow-x-auto">
         <table className="w-full">
           <thead><tr>
             <th className="th">Number</th><th className="th">From</th><th className="th">Issued</th>

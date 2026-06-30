@@ -11,7 +11,7 @@ export default function Deductions() {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-6">
         <h1 className="text-2xl font-semibold">Deductions (EOFY)</h1>
         <span className="text-sm text-muted">{data.period.start} → {data.period.end}</span>
       </div>
@@ -32,7 +32,7 @@ export default function Deductions() {
             <div className="font-medium">{cat}</div>
             <div className="text-good font-semibold">{money(g.total_cents)}</div>
           </div>
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full">
             <thead><tr>
               <th className="th">Date</th><th className="th">Description</th>
               <th className="th text-right">Amount</th><th className="th text-right">Use %</th>
@@ -49,7 +49,7 @@ export default function Deductions() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       ))}
     </div>

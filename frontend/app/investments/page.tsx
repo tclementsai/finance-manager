@@ -198,7 +198,7 @@ export default function Investments() {
         </div>
 
         {/* Balance list */}
-        <div className="card p-0 overflow-hidden">
+        <div className="card p-0 overflow-x-auto">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border">
             <div className="font-medium">Current balances</div>
             <div className="text-good font-semibold">{money(totalBalanceCents)}</div>
@@ -244,7 +244,7 @@ export default function Investments() {
 
       {/* Holdings & CGT */}
       <div className="grid lg:grid-cols-2 gap-4">
-        <div className="card">
+        <div className="card overflow-x-auto">
           <div className="stat-label mb-3">Holdings</div>
           <table className="w-full">
             <thead><tr>
@@ -265,7 +265,7 @@ export default function Investments() {
           </table>
         </div>
 
-        <div className="card">
+        <div className="card overflow-x-auto">
           <div className="stat-label mb-3">CGT events</div>
           <table className="w-full">
             <thead><tr>
