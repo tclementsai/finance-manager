@@ -97,6 +97,12 @@ export default function Invoices() {
 
   async function send(id: number) { await api(`/api/invoices/${id}/send`, { method: "POST" }); refreshInvoices(); }
   async function markPaid(id: number) { await api(`/api/invoices/${id}/mark-paid`, { method: "POST" }); refreshInvoices(); }
+  const [confirmDeleteInv, setConfirmDeleteInv] = useState<number | null>(null);
+  async function deleteInvoice(id: number) {
+    await api(`/api/invoices/${id}`, { method: "DELETE" });
+    setConfirmDeleteInv(null);
+    refreshInvoices();
+  }
 
   const profileReady = from?.abn && from?.bank_account_number;
 
@@ -293,6 +299,14 @@ export default function Invoices() {
                     <a href={inv.hosted_url} target="_blank" rel="noreferrer" className="text-accent text-xs">pay</a>
                   )}
                   {inv.status !== "paid" && <button className="text-good text-xs" onClick={() => markPaid(inv.id)}>mark paid</button>}
+                  {confirmDeleteInv === inv.id ? (
+                    <>
+                      <button className="text-bad text-xs font-medium" onClick={() => deleteInvoice(inv.id)}>confirm?</button>
+                      <button className="text-muted text-xs" onClick={() => setConfirmDeleteInv(null)}>cancel</button>
+                    </>
+                  ) : (
+                    <button className="text-muted text-xs hover:text-bad" onClick={() => setConfirmDeleteInv(inv.id)}>delete</button>
+                  )}
                 </td>
               </tr>
             ))}

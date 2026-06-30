@@ -1,6 +1,7 @@
 import os
 import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -44,3 +45,37 @@ async def upload_receipt(
     receipt = models.Receipt(file_path=path, user_id=current_user.id, **parsed)
     db.add(receipt); db.commit(); db.refresh(receipt)
     return receipt
+
+
+@router.get("/{receipt_id}/file")
+def serve_receipt(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    r = db.get(models.Receipt, receipt_id)
+    if not r or r.user_id != current_user.id:
+        raise HTTPException(404, "Receipt not found")
+    if not os.path.exists(r.file_path):
+        raise HTTPException(404, "File not found on disk")
+    return FileResponse(r.file_path)
+
+
+@router.delete("/{receipt_id}")
+def delete_receipt(
+    receipt_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    r = db.get(models.Receipt, receipt_id)
+    if not r or r.user_id != current_user.id:
+        raise HTTPException(404, "Receipt not found")
+    # Unlink from any transactions
+    db.query(models.Transaction).filter_by(receipt_id=receipt_id).update({"receipt_id": None})
+    try:
+        if os.path.exists(r.file_path):
+            os.remove(r.file_path)
+    except OSError:
+        pass
+    db.delete(r); db.commit()
+    return {"ok": True}

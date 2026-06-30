@@ -58,6 +58,20 @@ def get_invoice(
     return inv
 
 
+@router.delete("/{inv_id}")
+def delete_invoice(
+    inv_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    eids = get_user_entity_ids(current_user, db)
+    inv = db.get(models.Invoice, inv_id)
+    if not inv or inv.entity_id not in eids:
+        raise HTTPException(404, "Not found")
+    db.delete(inv); db.commit()
+    return {"ok": True}
+
+
 @router.post("", response_model=schemas.InvoiceOut)
 def create_invoice(
     body: schemas.InvoiceIn,

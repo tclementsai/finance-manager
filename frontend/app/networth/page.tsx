@@ -191,7 +191,7 @@ function Section({ title, groups, tone, onEdit, onRemove, empty }: any) {
               <span className="flex items-center gap-3">
                 <span>{money(it.value_cents)}</span>
                 {it.id !== -1 && (
-                  <span className="opacity-0 group-hover:opacity-100 transition flex gap-2">
+                  <span className="flex gap-2">
                     <button className="text-accent text-xs" onClick={() => onEdit(it)}>edit</button>
                     {confirmDelete === it.id ? (
                       <>
