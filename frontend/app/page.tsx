@@ -126,31 +126,34 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <div className="text-sm text-muted">
             {viewingBusiness ? "Business view" : selected === "all" ? "All income" : "Personal view"}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button className="btn-ghost" onClick={() => setPayOpen(!payOpen)}>Pay yourself</button>
           {/* Period selector */}
           <div className="flex rounded-lg overflow-hidden border border-border text-sm">
             {(["week", "month", "fy0", "fy-1"] as Period[]).map((p) => {
-              const labels: Record<Period, string> = { week: "This week", month: "This month", fy0: fyLabel(0).label, "fy-1": fyLabel(-1).label };
+              const labels: Record<Period, string> = { week: "Wk", month: "Mo", fy0: fyLabel(0).label, "fy-1": fyLabel(-1).label };
+              const fullLabels: Record<Period, string> = { week: "This week", month: "This month", fy0: fyLabel(0).label, "fy-1": fyLabel(-1).label };
               return (
                 <button
                   key={p}
-                  className={`px-3 py-1.5 ${period === p ? "bg-accent text-white" : "text-muted hover:text-white"}`}
+                  title={fullLabels[p]}
+                  className={`px-3 py-2.5 min-w-[44px] sm:px-3 sm:py-1.5 ${period === p ? "bg-accent text-white" : "text-muted hover:text-white"}`}
                   onClick={() => setPeriod(p)}
                 >
-                  {labels[p]}
+                  <span className="sm:hidden">{labels[p]}</span>
+                  <span className="hidden sm:inline">{fullLabels[p]}</span>
                 </button>
               );
             })}
           </div>
-          <span className="text-xs text-muted">{bounds.start} → {bounds.end}</span>
+          <span className="hidden sm:inline text-xs text-muted">{bounds.start} → {bounds.end}</span>
         </div>
       </div>
 

@@ -14,6 +14,7 @@ export default {
         warn: "#f5a623",
         bad: "#ff5c5c",
         muted: "#8a93a6",
+        "surface-2": "rgba(27,32,48,0.6)",
       },
     },
   },

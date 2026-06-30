@@ -16,6 +16,21 @@ body {
     radial-gradient(38rem 38rem at 80% 100%, rgba(62, 207, 142, 0.16), transparent 60%);
   background-attachment: fixed;
   background-repeat: no-repeat;
+  /* Extend into safe areas (notch, home indicator) */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Mobile: clear fixed top bar + safe area. Desktop: use the p-8 from Tailwind. */
+.app-main {
+  padding-top: max(calc(44px + 1rem), calc(env(safe-area-inset-top, 0px) + 44px + 0.75rem));
+}
+@media (min-width: 768px) {
+  .app-main { padding-top: 2rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
 @media print {

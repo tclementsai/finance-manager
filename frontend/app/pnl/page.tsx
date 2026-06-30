@@ -55,13 +55,13 @@ export default function PnL() {
 
   return (
     <div className="max-w-5xl">
-      <div className="flex items-baseline justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between mb-6">
         <h1 className="text-2xl font-semibold">Profit & Loss</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {PERIODS.map((p, i) => (
             <button
               key={p.label}
-              className={`text-sm px-3 py-1 rounded-lg border transition-colors ${
+              className={`text-sm px-3 py-2.5 sm:py-1 rounded-lg border transition-colors min-h-[44px] sm:min-h-0 ${
                 i === periodIdx
                   ? "border-accent bg-accent/15 text-accent"
                   : "border-border text-muted hover:border-accent"

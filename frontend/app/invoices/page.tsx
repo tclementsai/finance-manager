@@ -175,21 +175,20 @@ export default function Invoices() {
           {showProfile && from && <div className="mb-4"><BusinessProfile entity={from} /></div>}
 
           <div className="stat-label mb-2">Line items</div>
-          <div className="grid grid-cols-12 gap-2 mb-1 text-xs text-muted px-1">
-            <div className="col-span-7">Description</div><div className="col-span-2">Qty</div><div className="col-span-2">Unit $</div>
-          </div>
           {lines.map((l, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 mb-2 items-center">
-              <input className="input col-span-7" placeholder="e.g. Consulting — 10 hrs" value={l.description}
+            <div key={i} className="mb-2 flex flex-col gap-1.5 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center">
+              <input className="input sm:col-span-7" placeholder="e.g. Consulting — 10 hrs" value={l.description}
                 onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} />
-              <input className="input col-span-2" value={l.qty}
-                onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, qty: e.target.value as any } : x))} />
-              <input className="input col-span-2" placeholder="0.00" value={l.unit}
-                onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} />
-              {lines.length > 1 && (
-                <button className="col-span-1 text-muted hover:text-bad text-sm"
-                  onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>
-              )}
+              <div className="flex gap-2 sm:contents">
+                <input className="input flex-1 sm:col-span-2" placeholder="Qty" value={l.qty}
+                  onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, qty: e.target.value as any } : x))} />
+                <input className="input flex-1 sm:col-span-2" placeholder="Unit $" value={l.unit}
+                  onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} />
+                {lines.length > 1 && (
+                  <button className="sm:col-span-1 text-muted hover:text-bad text-sm px-2"
+                    onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>
+                )}
+              </div>
             </div>
           ))}
           <button className="btn-ghost mt-1" onClick={() => setLines([...lines, { description: "", qty: 1, unit: "" }])}>
