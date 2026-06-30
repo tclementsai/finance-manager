@@ -135,7 +135,9 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-ghost" onClick={() => setPayOpen(!payOpen)}>Pay yourself</button>
+          {viewingBusiness && (
+            <button className="btn-ghost" onClick={() => setPayOpen(!payOpen)}>Pay yourself</button>
+          )}
           {/* Period selector */}
           <div className="flex rounded-lg overflow-hidden border border-border text-sm">
             {(["week", "month", "fy0", "fy-1"] as Period[]).map((p) => {
