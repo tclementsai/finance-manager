@@ -30,6 +30,7 @@ export default function Invoices() {
     businesses.find((e: any) => String(e.id) === String(selected)) ||
     businesses[0];
 
+  const [search, setSearch] = useState("");
   const [showProfile, setShowProfile] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [clientId, setClientId] = useState("");
@@ -129,7 +130,7 @@ export default function Invoices() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <div className="stat-label">Bill to (client)</div>
+                <div className="field-label">Bill to (client)</div>
                 <button type="button" className="text-xs text-accent hover:underline"
                   onClick={() => { setShowClientForm(!showClientForm); setClientErr(""); }}>
                   {showClientForm ? "Cancel" : "+ New client"}
@@ -240,20 +241,47 @@ export default function Invoices() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="mb-4 relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm">🔍</span>
+        <input
+          className="input pl-8"
+          placeholder="Search by invoice number, client or service…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {search && (
+          <button
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-white text-sm"
+            onClick={() => setSearch("")}
+          >✕</button>
+        )}
+      </div>
+
       <div className="card p-0 overflow-x-auto">
         <table className="w-full">
           <thead><tr>
-            <th className="th">Number</th><th className="th">From</th><th className="th">Issued</th>
+            <th className="th">Number</th><th className="th">Client</th><th className="th">Issued</th>
             <th className="th">Due</th><th className="th text-right">Total</th>
             <th className="th">Status</th><th className="th text-right">Actions</th>
           </tr></thead>
           <tbody>
-            {invoices?.map((inv: any) => (
+            {invoices?.filter((inv: any) => {
+              if (!search.trim()) return true;
+              const q = search.toLowerCase();
+              const clientName = clients?.find((c: any) => c.id === inv.client_id)?.name ?? "";
+              const lineDescs = (inv.lines || []).map((l: any) => l.description || "").join(" ");
+              return (
+                inv.number?.toLowerCase().includes(q) ||
+                clientName.toLowerCase().includes(q) ||
+                lineDescs.toLowerCase().includes(q)
+              );
+            }).map((inv: any) => (
               <tr key={inv.id} className="hover:bg-panel2/50">
                 <td className="td font-medium">
                   <Link href={`/invoices/${inv.id}`} className="hover:text-accent">{inv.number}</Link>
                 </td>
-                <td className="td text-muted">{entities?.find((e: any) => e.id === inv.entity_id)?.name}</td>
+                <td className="td text-muted">{clients?.find((c: any) => c.id === inv.client_id)?.name ?? <span className="text-muted/50">—</span>}</td>
                 <td className="td">{inv.issue_date}</td>
                 <td className="td">{inv.due_date}</td>
                 <td className="td text-right font-semibold">{money(inv.total_cents)}</td>
@@ -268,7 +296,17 @@ export default function Invoices() {
                 </td>
               </tr>
             ))}
-            {invoices?.length === 0 && <tr><td className="td text-muted" colSpan={7}>No invoices yet — create your first above.</td></tr>}
+            {invoices?.length === 0 && (
+              <tr><td className="td text-muted" colSpan={7}>No invoices yet — create your first above.</td></tr>
+            )}
+            {invoices?.length > 0 && search && invoices.filter((inv: any) => {
+              const q = search.toLowerCase();
+              const clientName = clients?.find((c: any) => c.id === inv.client_id)?.name ?? "";
+              const lineDescs = (inv.lines || []).map((l: any) => l.description || "").join(" ");
+              return inv.number?.toLowerCase().includes(q) || clientName.toLowerCase().includes(q) || lineDescs.toLowerCase().includes(q);
+            }).length === 0 && (
+              <tr><td className="td text-muted" colSpan={7}>No invoices match "{search}".</td></tr>
+            )}
           </tbody>
         </table>
       </div>

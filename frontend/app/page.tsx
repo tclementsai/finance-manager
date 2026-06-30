@@ -63,6 +63,7 @@ export default function Dashboard() {
   const { data: recurringData } = useSWR(withEntity("/api/transactions/recurring", selected), fetcher, REFRESH);
   const { data: balanceData } = useSWR(withEntity("/api/accounts/balances", selected), fetcher, REFRESH);
   const { data: categories } = useSWR("/api/categories", fetcher, REFRESH);
+  const { data: networthData } = useSWR("/api/networth/summary", fetcher, REFRESH);
   const [payOpen, setPayOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [drillDown, setDrillDown] = useState<string | null>(null);
@@ -188,6 +189,22 @@ export default function Dashboard() {
               onClick={() => setDrillDown(drillDown === "available" ? null : "available")}
               active={drillDown === "available"} />
           </div>
+
+          {/* Net worth minimal bar */}
+          {networthData && (
+            <div className="flex items-center justify-between px-5 py-3 mb-4 rounded-xl"
+              style={{ background: "rgba(22,27,38,0.42)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <span className="text-xs text-muted uppercase tracking-wide">Net worth</span>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-muted">Assets {money(networthData.total_assets_cents)}</span>
+                <span className="text-xs text-muted">·</span>
+                <span className="text-xs text-muted">Liabilities {money(networthData.total_liabilities_cents)}</span>
+                <span className={`font-semibold text-sm ${networthData.net_worth_cents >= 0 ? "text-good" : "text-bad"}`}>
+                  {money(networthData.net_worth_cents)}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Savings allocation */}
           <div className="card flex items-center gap-4 py-3 mb-4">

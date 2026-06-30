@@ -10,8 +10,9 @@ import { useAuth } from "@/lib/auth-context";
 const links = [
   { href: "/", label: "Dashboard", icon: "▦" },
   { href: "/transactions", label: "Transactions", icon: "↕" },
-  { href: "/pnl", label: "Profit & Loss", icon: "📊" },
   { href: "/invoices", label: "Invoices", icon: "🧾" },
+  { href: "/pnl", label: "Profit & Loss", icon: "📊" },
+  { href: "/businesses", label: "Manage Businesses", icon: "⚙" },
   { href: "/investments", label: "Investments", icon: "📈" },
   { href: "/networth", label: "Net Worth", icon: "🏦" },
   { href: "/recurring", label: "Recurring", icon: "↻" },
@@ -21,7 +22,6 @@ const links = [
   { href: "/commitments", label: "Commitments", icon: "📋" },
   { href: "/clients", label: "Clients", icon: "👤" },
   { href: "/connections", label: "Connections", icon: "⚡" },
-  { href: "/businesses", label: "Manage Businesses", icon: "⚙" },
 ];
 
 export function Nav() {

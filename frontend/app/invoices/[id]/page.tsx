@@ -45,7 +45,7 @@ export default function InvoiceView({ params }: { params: Promise<{ id: string }
             <div className="text-sm text-slate-500">Issued {inv.issue_date}</div>
             <div className="text-sm text-slate-500">Due {inv.due_date}</div>
             <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${
-              inv.status === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+              inv.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
               {inv.status.toUpperCase()}
             </span>
           </div>
