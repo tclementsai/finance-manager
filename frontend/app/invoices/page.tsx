@@ -119,7 +119,7 @@ export default function Invoices() {
         <div className="card mb-6">
           <div className="grid md:grid-cols-2 gap-3 mb-4">
             <div>
-              <div className="stat-label mb-1">Invoice from</div>
+              <div className="field-label mb-1">Invoice from</div>
               <select className="input" value={String(from?.id ?? "")}
                 onChange={(e) => setFromId(e.target.value)}>
                 {businesses.map((e: any) => (
@@ -198,7 +198,7 @@ export default function Invoices() {
           {/* Deposit + reminders */}
           <div className="grid md:grid-cols-2 gap-3 mt-5 pt-4 border-t border-border">
             <div>
-              <div className="stat-label mb-1">Deposit required</div>
+              <div className="field-label mb-1">Deposit required</div>
               <div className="flex gap-2">
                 <select className="input w-32" value={depositType}
                   onChange={(e) => { setDepositType(e.target.value as any); setDepositValue(""); }}>
@@ -216,7 +216,7 @@ export default function Invoices() {
               )}
             </div>
             <div>
-              <div className="stat-label mb-1">Payment reminders</div>
+              <div className="field-label mb-1">Payment reminders</div>
               <select className="input" value={reminderFreq} onChange={(e) => setReminderFreq(e.target.value)}>
                 <option value="none">No reminders</option>
                 <option value="weekly">Weekly</option>

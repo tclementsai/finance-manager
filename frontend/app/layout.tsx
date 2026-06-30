@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/lib/auth-context";
 import { EntityProvider } from "@/lib/entity-context";
 import { AppShell } from "@/components/AppShell";
@@ -7,7 +7,12 @@ import { AppShell } from "@/components/AppShell";
 export const metadata: Metadata = {
   title: "Ledger — Finance Manager",
   description: "Income, expenses, deductions, invoicing & tax set-aside",
-  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

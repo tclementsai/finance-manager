@@ -44,11 +44,11 @@ export default function Commitments() {
 
       <div className="card mb-6 flex flex-col sm:flex-row gap-3 items-end">
         <div className="flex-1 min-w-0">
-          <div className="stat-label mb-1">Name</div>
+          <div className="field-label mb-1">Name</div>
           <input className="input" placeholder="e.g. Rent" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="w-full sm:w-40">
-          <div className="stat-label mb-1">Amount / month ($)</div>
+          <div className="field-label mb-1">Amount / month ($)</div>
           <input className="input" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
         <button className="btn w-full sm:w-auto h-9" onClick={add}>Add</button>

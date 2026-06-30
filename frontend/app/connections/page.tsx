@@ -130,7 +130,7 @@ export default function Connections() {
             <div className="stat-label mb-3">New account</div>
             <div className="grid md:grid-cols-4 gap-3 items-end">
               <div className="md:col-span-1">
-                <div className="stat-label mb-1">Name</div>
+                <div className="field-label mb-1">Name</div>
                 <input
                   className="input"
                   placeholder="e.g. Raiz Invest"
@@ -139,7 +139,7 @@ export default function Connections() {
                 />
               </div>
               <div>
-                <div className="stat-label mb-1">Type</div>
+                <div className="field-label mb-1">Type</div>
                 <select
                   className="input"
                   value={adding.type}
@@ -151,7 +151,7 @@ export default function Connections() {
                 </select>
               </div>
               <div>
-                <div className="stat-label mb-1">Under</div>
+                <div className="field-label mb-1">Under</div>
                 <select
                   className="input"
                   value={addEntityId}
@@ -320,7 +320,7 @@ function UpCard({ entity, liveAccounts, anyConnected, showTokenInput }: { entity
           {/* Account linking */}
           {upAccounts && upAccounts.length > 0 && (
             <div>
-              <div className="stat-label mb-1.5">Link UP accounts</div>
+              <div className="field-label mb-1.5">Link UP accounts</div>
               {upAccounts.map((ua: any) => {
                 const linked = ua.linked_local_account_id;
                 return (

@@ -190,7 +190,7 @@ export default function Transactions() {
             </select>
           </Field>
         ) : (
-          <Field label="Deductible?">
+          <Field label="Deductible?" asDiv>
             <label className="flex items-center gap-2 text-sm h-9">
               <input type="checkbox" checked={form.is_deductible}
                 onChange={(e) => setForm({ ...form, is_deductible: e.target.checked })} />
@@ -268,8 +268,8 @@ export default function Transactions() {
                               {cat.name}
                             </span>
                             <button
+                              aria-label="Remove category"
                               className="shrink-0 text-muted opacity-0 group-hover:opacity-100 text-xs hover:text-bad transition-opacity"
-                              title="Remove category"
                               onClick={() => setCategory(t, null)}
                             >
                               ×
@@ -294,6 +294,7 @@ export default function Transactions() {
                         {t.direction === "out" && (
                           <>
                             <button
+                              aria-label={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
                               title={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
                               className={`text-xs px-1 py-0.5 rounded transition-colors ${
                                 t.is_deductible
@@ -312,6 +313,7 @@ export default function Transactions() {
                               />
                             )}
                             <button
+                              aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
                               className={`text-xs ${t.is_recurring ? "text-accent" : "text-muted hover:text-accent"}`}
                               onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
                             >
@@ -319,7 +321,7 @@ export default function Transactions() {
                             </button>
                           </>
                         )}
-                        <button onClick={() => del(t.id)} className="text-muted hover:text-bad text-xs">×</button>
+                        <button aria-label="Delete transaction" onClick={() => del(t.id)} className="text-muted hover:text-bad text-xs">×</button>
                       </div>
                     </td>
                   </tr>
@@ -484,11 +486,17 @@ function ReceiptUpload({ txId, hasReceipt, onDone }: { txId: number; hasReceipt:
   );
 }
 
-function Field({ label, children }: any) {
-  return (
+function Field({ label, children, asDiv }: any) {
+  if (asDiv) return (
     <div>
-      <div className="stat-label mb-1">{label}</div>
+      <span className="field-label mb-1 block">{label}</span>
       {children}
     </div>
+  );
+  return (
+    <label className="block">
+      <span className="field-label mb-1 block">{label}</span>
+      {children}
+    </label>
   );
 }

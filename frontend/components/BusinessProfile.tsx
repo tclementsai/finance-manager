@@ -60,13 +60,13 @@ export function BusinessProfile({ entity }: { entity: any }) {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         {FIELDS.map(([key, label, ph]) => (
           <div key={key} className={key === "address" || key === "invoice_footer" ? "md:col-span-2 lg:col-span-3" : ""}>
-            <div className="stat-label mb-1">{label}</div>
+            <div className="field-label mb-1">{label}</div>
             <input className="input" placeholder={ph} value={form[key] ?? ""}
               onChange={(e) => set(key, e.target.value)} />
           </div>
         ))}
         <div>
-          <div className="stat-label mb-1">Payment terms (days)</div>
+          <div className="field-label mb-1">Payment terms (days)</div>
           <input className="input" type="number" value={form.payment_terms_days ?? 30}
             onChange={(e) => set("payment_terms_days", e.target.value)} />
         </div>

@@ -110,17 +110,17 @@ export default function Recurring() {
         <div className="stat-label mb-3">Add recurring expense</div>
         <div className="grid md:grid-cols-4 gap-3 items-end">
           <div className="md:col-span-2">
-            <div className="stat-label mb-1">Description</div>
+            <div className="field-label mb-1">Description</div>
             <input className="input" placeholder="e.g. Spotify, Rent, Gym"
               value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
           <div>
-            <div className="stat-label mb-1">Amount ($)</div>
+            <div className="field-label mb-1">Amount ($)</div>
             <input className="input" placeholder="0.00"
               value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </div>
           <div>
-            <div className="stat-label mb-1">Frequency</div>
+            <div className="field-label mb-1">Frequency</div>
             <select className="input" value={form.freq}
               onChange={(e) => setForm({ ...form, freq: e.target.value })}>
               {FREQS.map((f) => <option key={f} value={f}>{f}</option>)}
@@ -129,12 +129,12 @@ export default function Recurring() {
         </div>
         <div className="grid md:grid-cols-4 gap-3 items-end mt-3">
           <div>
-            <div className="stat-label mb-1">Date (first occurrence)</div>
+            <div className="field-label mb-1">Date (first occurrence)</div>
             <input type="date" className="input text-sm" value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </div>
           <div>
-            <div className="stat-label mb-1">Personal / Business</div>
+            <div className="field-label mb-1">Personal / Business</div>
             <select className="input" value={form.entity_id}
               onChange={(e) => setForm({ ...form, entity_id: e.target.value })}>
               <option value="">— auto (current filter) —</option>
@@ -207,7 +207,7 @@ export default function Recurring() {
                     {moneyShort(item.monthly_cents)}
                   </td>
                   <td className="td text-right">
-                    <button onClick={() => remove(item.id)}
+                    <button aria-label={`Remove ${item.description} from recurring`} onClick={() => remove(item.id)}
                       className="text-xs text-muted hover:text-bad">×</button>
                   </td>
                 </tr>

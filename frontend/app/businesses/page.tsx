@@ -101,12 +101,12 @@ export default function Businesses() {
       {adding && (
         <div className="card mb-6 grid md:grid-cols-4 gap-3 items-end">
           <div className="md:col-span-2">
-            <div className="stat-label mb-1">Name</div>
+            <div className="field-label mb-1">Name</div>
             <input className="input" placeholder="e.g. Acme Pty Ltd" value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
-            <div className="stat-label mb-1">Type</div>
+            <div className="field-label mb-1">Type</div>
             <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               <option value="sole_trader">Sole trader (business)</option>
               <option value="company">Company (business, GST)</option>

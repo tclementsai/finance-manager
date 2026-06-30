@@ -67,7 +67,7 @@ export function Nav() {
         </div>
 
         <div className="px-1 mb-4">
-          <div className="stat-label mb-1">Business</div>
+          <div className="field-label mb-1">Business</div>
           <select
             className="input"
             value={String(selected)}
@@ -155,7 +155,7 @@ export function Nav() {
 
         {/* Entity selector */}
         <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div className="stat-label mb-1.5">View as</div>
+          <div className="field-label mb-1.5">View as</div>
           <select
             className="input text-sm"
             value={String(selected)}

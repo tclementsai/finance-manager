@@ -17,6 +17,7 @@ export default function Clients() {
   const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
   const fromId = entityId || String(businesses[0]?.id ?? "");
 
@@ -50,9 +51,9 @@ export default function Clients() {
   }
 
   async function remove(id: number) {
-    if (!confirm("Delete this client?")) return;
     await api(`/api/clients/${id}`, { method: "DELETE" });
     mutate("/api/clients");
+    setConfirmDelete(null);
     if (editId === id) reset();
   }
 
@@ -76,7 +77,7 @@ export default function Clients() {
             <div className="stat-label mb-3">{editId ? "Edit client" : "Add client"}</div>
             <div className="space-y-2">
               <div>
-                <div className="stat-label mb-1">Bill from (business)</div>
+                <div className="field-label mb-1">Bill from (business)</div>
                 <select className="input" value={fromId}
                   onChange={(e) => setEntityId(e.target.value)}>
                   {businesses.map((e: any) => (
@@ -119,7 +120,14 @@ export default function Clients() {
                     <td className="td text-muted text-sm">{entityName(c.entity_id)}</td>
                     <td className="td text-right space-x-3 whitespace-nowrap">
                       <button className="text-accent text-xs" onClick={() => startEdit(c)}>edit</button>
-                      <button className="text-bad text-xs" onClick={() => remove(c.id)}>delete</button>
+                      {confirmDelete === c.id ? (
+                        <>
+                          <button className="text-bad text-xs font-medium" onClick={() => remove(c.id)}>confirm?</button>
+                          <button className="text-muted text-xs" onClick={() => setConfirmDelete(null)}>cancel</button>
+                        </>
+                      ) : (
+                        <button className="text-muted hover:text-bad text-xs" onClick={() => setConfirmDelete(c.id)}>delete</button>
+                      )}
                     </td>
                   </tr>
                 ))}

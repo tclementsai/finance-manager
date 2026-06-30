@@ -29,6 +29,12 @@ body {
   .app-main { padding-top: 2rem; }
 }
 
+:focus-visible {
+  outline: 2px solid #5b8cff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
@@ -44,21 +50,27 @@ body {
   /* Liquid-glass card: translucent, blurred backdrop with a bright top edge. */
   .card {
     @apply rounded-xl p-4 md:p-5;
-    background: rgba(22, 27, 38, 0.42);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(22, 27, 38, 0.55);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
     box-shadow:
-      0 10px 40px rgba(0, 0, 0, 0.40),
-      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      0 4px 24px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  }
+  /* Hero card: full glass effect for primary stat surfaces (first stat card on dashboard etc.) */
+  .card-hero {
+    backdrop-filter: blur(28px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+    background: rgba(22, 27, 38, 0.42) !important;
   }
   .stat-label { @apply text-muted text-xs uppercase tracking-wide; }
+  /* Form field labels: no uppercase/tracking — reserved for stat card eyebrows only */
+  .field-label { @apply text-muted text-xs font-medium; }
   .stat-value { @apply text-xl md:text-2xl font-semibold mt-1; }
   .btn { @apply bg-accent text-white px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition; }
   .btn-ghost { @apply bg-panel2 border border-border px-3 py-2 rounded-lg text-sm hover:border-accent transition; }
   .btn-danger { @apply bg-bad/20 border border-bad/40 text-bad px-3 py-2 rounded-lg text-sm font-medium hover:bg-bad/30 transition; }
-  .text-good { color: #3ecf8e; }
-  .bg-good { background-color: #3ecf8e; }
   .input { @apply bg-panel2 border border-border rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:border-accent; }
   .th { @apply text-left text-muted text-xs uppercase tracking-wide py-2 px-3; }
   .td { @apply py-2 px-3 border-t border-border text-sm; }
@@ -66,4 +78,10 @@ body {
   .nav-link-active { @apply bg-panel2 text-white; }
   /* Tables scroll horizontally on small screens */
   .table-wrap { @apply w-full overflow-x-auto -mx-0; }
+  /* Expand tap targets for inline text buttons in table cells without changing visual size */
+  .td button, .td a {
+    @apply inline-flex items-center;
+    min-height: 32px;
+    padding-block: 6px;
+  }
 }

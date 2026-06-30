@@ -26,8 +26,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-accent focus:text-white focus:rounded-lg focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <Nav />
-      <main className="flex-1 min-w-0 p-4 md:p-8 max-w-[1400px] mx-auto app-main">{children}</main>
+      <main id="main-content" className="flex-1 min-w-0 p-4 md:p-8 max-w-[1400px] mx-auto app-main">{children}</main>
     </div>
   );
 }

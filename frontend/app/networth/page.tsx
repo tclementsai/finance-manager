@@ -44,7 +44,6 @@ export default function NetWorth() {
   }
 
   async function remove(id: number) {
-    if (!confirm("Delete this item?")) return;
     await api(`/api/networth/${id}`, { method: "DELETE" });
     refresh();
     if (editId === id) reset();
@@ -170,6 +169,7 @@ export default function NetWorth() {
 }
 
 function Section({ title, groups, tone, onEdit, onRemove, empty }: any) {
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const total = groups.reduce((s: number, g: any) => s + g.total_cents, 0);
   return (
     <div className="card p-0 overflow-hidden">
@@ -193,7 +193,14 @@ function Section({ title, groups, tone, onEdit, onRemove, empty }: any) {
                 {it.id !== -1 && (
                   <span className="opacity-0 group-hover:opacity-100 transition flex gap-2">
                     <button className="text-accent text-xs" onClick={() => onEdit(it)}>edit</button>
-                    <button className="text-bad text-xs" onClick={() => onRemove(it.id)}>delete</button>
+                    {confirmDelete === it.id ? (
+                      <>
+                        <button className="text-bad text-xs font-medium" onClick={() => { onRemove(it.id); setConfirmDelete(null); }}>confirm?</button>
+                        <button className="text-muted text-xs" onClick={() => setConfirmDelete(null)}>cancel</button>
+                      </>
+                    ) : (
+                      <button className="text-muted hover:text-bad text-xs" onClick={() => setConfirmDelete(it.id)}>delete</button>
+                    )}
                   </span>
                 )}
               </span>

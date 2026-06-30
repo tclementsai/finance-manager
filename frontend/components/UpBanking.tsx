@@ -108,7 +108,7 @@ export function UpBanking({ entity }: Props) {
           </p>
           <div className="flex gap-2 items-end">
             <div className="flex-1">
-              <div className="stat-label mb-1">Personal access token</div>
+              <div className="field-label mb-1">Personal access token</div>
               <input
                 className="input font-mono text-xs"
                 type="password"
@@ -172,7 +172,7 @@ export function UpBanking({ entity }: Props) {
             <div className="stat-label mb-2">Sync transactions</div>
             <div className="flex gap-2 items-end">
               <div>
-                <div className="stat-label mb-1">Sync from date (optional)</div>
+                <div className="field-label mb-1">Sync from date (optional)</div>
                 <input
                   className="input text-sm"
                   type="date"

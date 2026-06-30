@@ -39,18 +39,18 @@ export default function ImportPage() {
 
       <form onSubmit={submit} className="card flex flex-col gap-4">
         <div>
-          <div className="stat-label mb-1">Entity</div>
+          <div className="field-label mb-1">Entity</div>
           <select className="input" value={effectiveEntity} onChange={(e) => setEntityId(e.target.value)}>
             {entities?.map((e: any) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
         </div>
         <div>
-          <div className="stat-label mb-1">CSV file</div>
+          <div className="field-label mb-1">CSV file</div>
           <input type="file" accept=".csv" className="input"
             onChange={(e) => setFile(e.target.files?.[0] || null)} />
         </div>
         <div>
-          <div className="stat-label mb-1">Column mapping (JSON)</div>
+          <div className="field-label mb-1">Column mapping (JSON)</div>
           <textarea className="input font-mono h-40" value={mapping}
             onChange={(e) => setMapping(e.target.value)} />
           <p className="text-xs text-muted mt-1">

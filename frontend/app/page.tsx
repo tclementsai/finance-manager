@@ -373,7 +373,7 @@ export default function Dashboard() {
               <BarChart data={catData} layout="vertical" margin={{ left: 8, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#262c3a" horizontal={false} />
                 <XAxis type="number" stroke="#8a93a6" fontSize={11} tickFormatter={(v) => "$" + (v / 1000).toFixed(1) + "k"} />
-                <YAxis type="category" dataKey="name" stroke="#8a93a6" fontSize={11} width={130} />
+                <YAxis type="category" dataKey="name" stroke="#8a93a6" fontSize={11} width={80} />
                 <Tooltip
                   contentStyle={{ background: "#141821", border: "1px solid #262c3a", borderRadius: 8 }}
                   formatter={(v: any) => ["$" + v.toLocaleString(), "Spent"]}
@@ -491,13 +491,13 @@ function PayYourself({ entities, onDone, keyToRefresh }: any) {
       </p>
       <div className="grid md:grid-cols-3 gap-3 items-end">
         <div>
-          <div className="stat-label mb-1">From business</div>
+          <div className="field-label mb-1">From business</div>
           <select className="input" value={fromId} onChange={(e) => setFromId(e.target.value)}>
             {businesses.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
         <div>
-          <div className="stat-label mb-1">Amount ($)</div>
+          <div className="field-label mb-1">Amount ($)</div>
           <input className="input" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
         <div className="flex gap-2">

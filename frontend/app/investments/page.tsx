@@ -146,7 +146,7 @@ export default function Investments() {
           <div className="stat-label mb-3">{editId ? "Edit balance" : "Add investment balance"}</div>
           <div className="space-y-2">
             <div>
-              <div className="stat-label mb-1">Entity</div>
+              <div className="field-label mb-1">Entity</div>
               <select className="input" value={form.entity_id || String(defaultEntityId || "")}
                 onChange={(e) => setForm({ ...form, entity_id: e.target.value })}>
                 {(entities || []).map((e: any) => (
@@ -155,7 +155,7 @@ export default function Investments() {
               </select>
             </div>
             <div>
-              <div className="stat-label mb-1">Platform / provider</div>
+              <div className="field-label mb-1">Platform / provider</div>
               <input
                 className="input" list="platform-list"
                 placeholder="e.g. Raiz, Stake, CommSec"
@@ -167,7 +167,7 @@ export default function Investments() {
               </datalist>
             </div>
             <div>
-              <div className="stat-label mb-1">Investment method</div>
+              <div className="field-label mb-1">Investment method</div>
               <input
                 className="input" list="method-list"
                 placeholder="e.g. ETF, Shares, Managed Fund"
@@ -179,7 +179,7 @@ export default function Investments() {
               </datalist>
             </div>
             <div>
-              <div className="stat-label mb-1">Current balance ($)</div>
+              <div className="field-label mb-1">Current balance ($)</div>
               <input
                 className="input" type="number" min="0" step="0.01" placeholder="0.00"
                 value={form.balance}
