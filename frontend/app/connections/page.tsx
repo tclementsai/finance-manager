@@ -3,6 +3,116 @@ import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { fetcher, api, money } from "@/lib/api";
 
+function StripeCard() {
+  const { data, mutate } = useSWR("/api/settings", fetcher);
+  const [key, setKey] = useState("");
+  const [webhook, setWebhook] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  async function connect() {
+    if (!key.trim()) return;
+    setErr(""); setSaving(true);
+    try {
+      await api("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          stripe_secret_key: key.trim(),
+          stripe_webhook_secret: webhook.trim() || undefined,
+        }),
+      });
+      setKey(""); setWebhook(""); setShowForm(false);
+      mutate();
+    } catch (e: any) { setErr(String(e.message || e)); }
+    finally { setSaving(false); }
+  }
+
+  async function disconnect() {
+    await api("/api/settings/stripe", { method: "DELETE" });
+    mutate();
+  }
+
+  const connected = data?.stripe_connected;
+
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#635BFF]/20 flex items-center justify-center text-sm font-bold text-[#635BFF]">
+            S
+          </div>
+          <div>
+            <div className="font-medium text-sm">Stripe</div>
+            <div className="text-xs text-muted">Send invoices and collect payments online</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {connected ? (
+            <>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-good/15 text-good">Connected</span>
+              <span className="text-xs text-muted font-mono">{data.stripe_key_hint}</span>
+              <button className="text-xs text-muted hover:text-bad ml-1" onClick={disconnect}>Disconnect</button>
+            </>
+          ) : (
+            <>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-surface-2 text-muted">Not connected</span>
+              <button className="btn text-sm" onClick={() => setShowForm(!showForm)}>Connect</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {connected && (
+        <div className="mt-3 text-xs text-muted">
+          Invoices you send will be created in your Stripe account and emailed to your clients with a hosted payment link.
+          When a client pays, the invoice is automatically marked as paid here.
+        </div>
+      )}
+
+      {!connected && showForm && (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-muted">
+            Get your keys from <strong>dashboard.stripe.com → Developers → API keys</strong>.
+            Use <code className="bg-panel2 px-1 rounded">sk_test_...</code> to test or <code className="bg-panel2 px-1 rounded">sk_live_...</code> for real payments.
+          </p>
+          <div>
+            <div className="field-label mb-1">Secret key <span className="text-bad">*</span></div>
+            <input
+              className="input font-mono text-xs"
+              type="password"
+              placeholder="sk_live_... or sk_test_..."
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+            />
+          </div>
+          <div>
+            <div className="field-label mb-1">Webhook secret <span className="text-muted">(optional — needed for auto mark-paid)</span></div>
+            <input
+              className="input font-mono text-xs"
+              type="password"
+              placeholder="whsec_..."
+              value={webhook}
+              onChange={(e) => setWebhook(e.target.value)}
+            />
+            <p className="text-xs text-muted mt-1">
+              Add a webhook endpoint <code className="bg-panel2 px-1 rounded">/api/invoices/webhook</code> in Stripe → Developers → Webhooks,
+              listen for <code className="bg-panel2 px-1 rounded">invoice.paid</code>, then paste the signing secret here.
+            </p>
+          </div>
+          {err && <div className="text-bad text-xs">{err}</div>}
+          <div className="flex gap-2">
+            <button className="btn" onClick={connect} disabled={saving || !key.trim()}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button className="btn-ghost" onClick={() => { setShowForm(false); setErr(""); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Quick-add presets ──────────────────────────────────────────────────────────
 const PRESETS = [
   { name: "Raiz Invest",     type: "investment", emoji: "🌱" },
@@ -69,6 +179,7 @@ export default function Connections() {
       <section className="mb-8">
         <div className="stat-label mb-3">Live connections</div>
         <div className="flex flex-col gap-3">
+          <StripeCard />
           {[...personalEntities, ...businessEntities].map((entity: any, idx: number) => {
             const allEntities = [...personalEntities, ...businessEntities];
             const anyConnected = allEntities.some((e: any) => e.up_connected);

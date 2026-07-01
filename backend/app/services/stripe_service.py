@@ -32,51 +32,52 @@ def _bank_footer(entity) -> str:
     return "\n".join(parts)
 
 
-def create_and_send_invoice(invoice, client, entity=None) -> dict:
+def create_and_send_invoice(invoice, client, entity=None, stripe_key: str | None = None) -> dict:
     """Create a Stripe invoice from a local Invoice ORM object.
 
     Returns {stripe_invoice_id, hosted_url, status}. If Stripe isn't configured,
     returns a stub so the rest of the app keeps working in dev.
     """
-    if not enabled():
+    key = stripe_key or settings.stripe_secret_key
+    if not key:
         return {
             "stripe_invoice_id": None,
             "hosted_url": None,
-            "status": "sent",  # treat as locally sent
+            "status": "sent",
             "note": "Stripe not configured — invoice tracked locally only.",
         }
 
-    import stripe
+    import stripe as _stripe
+    _stripe.api_key = key
 
-    # Find/create the Stripe customer.
     customer_id = None
     if client and client.email:
-        existing = stripe.Customer.list(email=client.email, limit=1).data
-        customer = existing[0] if existing else stripe.Customer.create(
+        existing = _stripe.Customer.list(email=client.email, limit=1).data
+        customer = existing[0] if existing else _stripe.Customer.create(
             name=client.name, email=client.email
         )
         customer_id = customer.id
     elif client:
-        customer_id = stripe.Customer.create(name=client.name).id
+        customer_id = _stripe.Customer.create(name=client.name).id
 
     for line in invoice.lines:
         amount = int(round(line.unit_cents * line.qty))
-        stripe.InvoiceItem.create(
+        _stripe.InvoiceItem.create(
             customer=customer_id,
             amount=amount,
             currency="aud",
             description=line.description,
         )
 
-    si = stripe.Invoice.create(
+    si = _stripe.Invoice.create(
         customer=customer_id,
         collection_method="send_invoice",
         days_until_due=30,
         auto_advance=True,
         footer=_bank_footer(entity) or None,
     )
-    si = stripe.Invoice.finalize_invoice(si.id)
-    stripe.Invoice.send_invoice(si.id)
+    si = _stripe.Invoice.finalize_invoice(si.id)
+    _stripe.Invoice.send_invoice(si.id)
     return {
         "stripe_invoice_id": si.id,
         "hosted_url": si.hosted_invoice_url,
@@ -84,9 +85,8 @@ def create_and_send_invoice(invoice, client, entity=None) -> dict:
     }
 
 
-def parse_webhook(payload: bytes, sig_header: str):
+def parse_webhook(payload: bytes, sig_header: str, webhook_secret: str | None = None):
     """Verify + parse a Stripe webhook event."""
-    import stripe
-    return stripe.Webhook.construct_event(
-        payload, sig_header, settings.stripe_webhook_secret
-    )
+    import stripe as _stripe
+    secret = webhook_secret or settings.stripe_webhook_secret
+    return _stripe.Webhook.construct_event(payload, sig_header, secret)

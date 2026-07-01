@@ -113,7 +113,7 @@ def send_invoice(
         raise HTTPException(404, "Not found")
     client = db.get(models.Client, inv.client_id) if inv.client_id else None
     entity = db.get(models.Entity, inv.entity_id)
-    result = stripe_service.create_and_send_invoice(inv, client, entity)
+    result = stripe_service.create_and_send_invoice(inv, client, entity, stripe_key=current_user.stripe_secret_key)
     inv.stripe_invoice_id = result.get("stripe_invoice_id")
     inv.hosted_url = result.get("hosted_url")
     inv.status = result.get("status", "sent")

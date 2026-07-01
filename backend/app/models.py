@@ -16,6 +16,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True)
     totp_enabled = Column(Boolean, default=False)
+    stripe_secret_key = Column(String, nullable=True)
+    stripe_webhook_secret = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     entities = relationship("Entity", back_populates="user")

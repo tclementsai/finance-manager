@@ -14,7 +14,7 @@ from .auth import hash_password
 from .routers import (
     entities, accounts, transactions, categories, imports,
     receipts, clients, invoices, investments, dashboard, up_banking, commitments,
-    networth, auth,
+    networth, auth, settings,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,10 @@ def _lightweight_migrate():
             conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR"))
         if "totp_enabled" not in existing_users:
             conn.execute(text("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE"))
+        if "stripe_secret_key" not in existing_users:
+            conn.execute(text("ALTER TABLE users ADD COLUMN stripe_secret_key VARCHAR"))
+        if "stripe_webhook_secret" not in existing_users:
+            conn.execute(text("ALTER TABLE users ADD COLUMN stripe_webhook_secret VARCHAR"))
 
         for col, ddl in entity_additions.items():
             if col not in existing_entities:
@@ -218,5 +222,5 @@ def health():
 
 for r in (auth, entities, accounts, transactions, categories, imports,
           receipts, clients, invoices, investments, dashboard, up_banking, commitments,
-          networth):
+          networth, settings):
     app.include_router(r.router)
