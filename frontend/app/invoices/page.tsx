@@ -106,6 +106,16 @@ export default function Invoices() {
 
   const profileReady = from?.abn && from?.bank_account_number;
 
+  const stats = invoices ? {
+    total: invoices.length,
+    paid: invoices.filter((i: any) => i.status === "paid").length,
+    unpaid: invoices.filter((i: any) => i.status !== "paid" && i.status !== "draft").length,
+    draft: invoices.filter((i: any) => i.status === "draft").length,
+    totalPaidCents: invoices.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + i.total_cents, 0),
+    totalUnpaidCents: invoices.filter((i: any) => i.status !== "paid" && i.status !== "draft").reduce((s: number, i: any) => s + i.total_cents, 0),
+    totalOutstandingCents: invoices.filter((i: any) => i.status !== "paid").reduce((s: number, i: any) => s + i.total_cents, 0),
+  } : null;
+
   return (
     <div>
       <div className="flex justify-between items-center mb-2">
@@ -121,6 +131,30 @@ export default function Invoices() {
           + New invoice
         </button>
       </div>
+
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="card">
+            <div className="text-xs text-muted uppercase tracking-wide mb-1">Total invoices</div>
+            <div className="text-2xl font-semibold">{stats.total}</div>
+          </div>
+          <div className="card">
+            <div className="text-xs text-muted uppercase tracking-wide mb-1">Paid</div>
+            <div className="text-2xl font-semibold text-good">{money(stats.totalPaidCents)}</div>
+            <div className="text-xs text-muted mt-0.5">{stats.paid} invoice{stats.paid !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="card">
+            <div className="text-xs text-muted uppercase tracking-wide mb-1">Awaiting payment</div>
+            <div className="text-2xl font-semibold text-warn">{money(stats.totalUnpaidCents)}</div>
+            <div className="text-xs text-muted mt-0.5">{stats.unpaid} invoice{stats.unpaid !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="card">
+            <div className="text-xs text-muted uppercase tracking-wide mb-1">Draft</div>
+            <div className="text-2xl font-semibold text-muted">{stats.draft}</div>
+            <div className="text-xs text-muted mt-0.5">{money(stats.totalOutstandingCents - stats.totalUnpaidCents)} value</div>
+          </div>
+        </div>
+      )}
 
       {showCreate && (
         <div className="card mb-6">
