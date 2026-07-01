@@ -71,6 +71,32 @@ def serve_receipt(
     return FileResponse(r.file_path)
 
 
+@router.patch("/{receipt_id}")
+def update_receipt(
+    receipt_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    r = db.get(models.Receipt, receipt_id)
+    if not r or r.user_id != current_user.id:
+        raise HTTPException(404, "Receipt not found")
+    if "ocr_vendor" in body:
+        r.ocr_vendor = body["ocr_vendor"] or None
+    if "ocr_date" in body:
+        from datetime import date as _date
+        try:
+            r.ocr_date = _date.fromisoformat(body["ocr_date"]) if body["ocr_date"] else None
+        except ValueError:
+            pass
+    if "ocr_total_cents" in body:
+        r.ocr_total_cents = int(round(float(body["ocr_total_cents"]) * 100)) if body["ocr_total_cents"] else None
+    if "ocr_gst_cents" in body:
+        r.ocr_gst_cents = int(round(float(body["ocr_gst_cents"]) * 100)) if body["ocr_gst_cents"] else None
+    db.commit(); db.refresh(r)
+    return r
+
+
 @router.delete("/{receipt_id}")
 def delete_receipt(
     receipt_id: int,
