@@ -125,6 +125,19 @@ export default function Dashboard() {
     .map(([k, v]: any) => ({ name: k, value: v / 100 }))
     .slice(0, 10);
 
+  if (entities && entities.length === 0) {
+    return (
+      <div className="max-w-lg mx-auto mt-16 text-center">
+        <div className="text-5xl mb-4">👋</div>
+        <h1 className="text-2xl font-semibold mb-2">Welcome to Ledger</h1>
+        <p className="text-muted text-sm mb-8">
+          You don't have any accounts set up yet. Head to <strong>Manage Businesses</strong> to create your first personal or business account — it only takes a minute.
+        </p>
+        <a href="/businesses" className="btn inline-block px-8 py-3 text-base">Get started →</a>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">

@@ -84,6 +84,35 @@ export default function Businesses() {
     </div>
   );
 
+  const isNewUser = entities && entities.length === 0;
+
+  if (isNewUser && !adding) {
+    return (
+      <div className="max-w-lg mx-auto mt-16 text-center">
+        <div className="text-5xl mb-4">👋</div>
+        <h1 className="text-2xl font-semibold mb-2">Welcome to Ledger</h1>
+        <p className="text-muted text-sm mb-8">
+          Start by setting up your first account. A <strong>Personal</strong> account tracks
+          your take-home money. Add a <strong>Business</strong> if you run a sole trader or company.
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            className="btn w-full py-3 text-base"
+            onClick={() => { setForm({ name: "Personal", type: "personal" }); setAdding(true); setErr(""); }}
+          >
+            Set up Personal account
+          </button>
+          <button
+            className="btn-ghost w-full py-3 text-base"
+            onClick={() => { setForm({ name: "", type: "sole_trader" }); setAdding(true); setErr(""); }}
+          >
+            Set up Business account
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl">
       <div className="flex justify-between items-center mb-2">
