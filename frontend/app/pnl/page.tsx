@@ -1,30 +1,17 @@
 "use client";
-import { useState } from "react";
 import useSWR from "swr";
 import { fetcher, money, moneyShort } from "@/lib/api";
 import { useEntity, withEntity } from "@/lib/entity-context";
+import { useDateFilter } from "@/lib/use-date-filter";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 
-function fyLabel(offset: number) {
-  const today = new Date();
-  const fyYear = today.getMonth() >= 6 ? today.getFullYear() : today.getFullYear() - 1;
-  const y = fyYear + offset;
-  return { label: `FY${String(y + 1).slice(2)}`, start: `${y}-07-01`, end: `${y + 1}-06-30` };
-}
-
-const PERIODS = [fyLabel(-1), fyLabel(0)];
-
 export default function PnL() {
   const { selected } = useEntity();
-  const [periodIdx, setPeriodIdx] = useState(1);
-  const period = PERIODS[periodIdx] ?? fyLabel(0);
+  const { buildQs, DateFilter } = useDateFilter("fy0");
 
-  const params = new URLSearchParams({ start: period.start, end: period.end });
-  if (selected !== "all") params.set("entity_id", String(selected));
-  const url = `/api/dashboard/pnl?${params}`;
-
+  const url = buildQs(withEntity("/api/dashboard/pnl", selected));
   const { data } = useSWR(url, fetcher);
 
   if (!data) return <div className="text-muted text-sm">Loading…</div>;
@@ -44,7 +31,7 @@ export default function PnL() {
 
   const monthData = Object.entries(by_month as Record<string, { revenue: number; expenses: number }>)
     .map(([month, v]) => ({
-      month: month.slice(5), // MM
+      month: month.slice(5),
       Revenue: +(v.revenue / 100).toFixed(2),
       Expenses: +(v.expenses / 100).toFixed(2),
       Profit: +((v.revenue - v.expenses) / 100).toFixed(2),
@@ -55,23 +42,9 @@ export default function PnL() {
 
   return (
     <div className="max-w-5xl">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 className="text-2xl font-semibold">Profit & Loss</h1>
-        <div className="flex flex-wrap gap-2">
-          {PERIODS.map((p, i) => (
-            <button
-              key={p.label}
-              className={`text-sm px-3 py-2.5 sm:py-1 rounded-lg border transition-colors min-h-[44px] sm:min-h-0 ${
-                i === periodIdx
-                  ? "border-accent bg-accent/15 text-accent"
-                  : "border-border text-muted hover:border-accent"
-              }`}
-              onClick={() => setPeriodIdx(i)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        {DateFilter}
       </div>
 
       {/* Summary stats */}

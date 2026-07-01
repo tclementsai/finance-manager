@@ -33,6 +33,8 @@ def _recalc(invoice: models.Invoice, entity: models.Entity):
 @router.get("", response_model=list[schemas.InvoiceOut])
 def list_invoices(
     entity_id: int | None = None,
+    start: date | None = None,
+    end: date | None = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -42,6 +44,10 @@ def list_invoices(
         if entity_id not in eids:
             raise HTTPException(403, "Forbidden")
         q = q.filter_by(entity_id=entity_id)
+    if start:
+        q = q.filter(models.Invoice.issue_date >= start)
+    if end:
+        q = q.filter(models.Invoice.issue_date <= end)
     return q.order_by(models.Invoice.created_at.desc()).all()
 
 

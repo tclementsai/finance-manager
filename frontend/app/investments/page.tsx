@@ -3,6 +3,7 @@ import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { fetcher, api, money } from "@/lib/api";
 import { useEntity, withEntity } from "@/lib/entity-context";
+import { useDateFilter } from "@/lib/use-date-filter";
 
 const PLATFORMS = ["Raiz", "Stake", "Pearler", "CommSec", "SelfWealth", "Vanguard", "Other"];
 const METHODS = ["ETF", "Shares", "Managed Fund", "Index Fund", "Super", "Crypto", "Other"];
@@ -12,9 +13,10 @@ const refresh = () => globalMutate((k: any) => typeof k === "string" &&
 
 export default function Investments() {
   const { selected } = useEntity();
+  const { buildQs, DateFilter } = useDateFilter("fy0");
   const { data: holdings } = useSWR(withEntity("/api/holdings", selected), fetcher);
-  const { data: cgt } = useSWR(withEntity("/api/cgt-events", selected), fetcher);
-  const { data: pack } = useSWR(withEntity("/api/dashboard/tax-pack", selected), fetcher);
+  const { data: cgt } = useSWR(buildQs(withEntity("/api/cgt-events", selected)), fetcher);
+  const { data: pack } = useSWR(buildQs(withEntity("/api/dashboard/tax-pack", selected)), fetcher);
   const { data: balances } = useSWR(withEntity("/api/investment-balances", selected), fetcher);
   const { data: entities } = useSWR("/api/entities", fetcher);
 
@@ -94,7 +96,10 @@ export default function Investments() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-6">Investments & Tax Pack</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 className="text-2xl font-semibold">Investments & Tax Pack</h1>
+        {DateFilter}
+      </div>
 
       {/* Headline: total investment balance + breakdown per platform */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

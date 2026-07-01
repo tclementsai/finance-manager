@@ -2,18 +2,20 @@
 import useSWR from "swr";
 import { fetcher, money } from "@/lib/api";
 import { useEntity, withEntity } from "@/lib/entity-context";
+import { useDateFilter } from "@/lib/use-date-filter";
 
 export default function Deductions() {
   const { selected } = useEntity();
-  const { data } = useSWR(withEntity("/api/dashboard/deductions", selected), fetcher);
+  const { buildQs, DateFilter } = useDateFilter("fy0");
+  const { data } = useSWR(buildQs(withEntity("/api/dashboard/deductions", selected)), fetcher);
   if (!data) return <div className="text-muted">Loading…</div>;
   const cats = Object.entries(data.by_category || {});
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-6">
-        <h1 className="text-2xl font-semibold">Deductions (EOFY)</h1>
-        <span className="text-sm text-muted">{data.period.start} → {data.period.end}</span>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 className="text-2xl font-semibold">Deductions</h1>
+        {DateFilter}
       </div>
 
       <div className="card mb-6">

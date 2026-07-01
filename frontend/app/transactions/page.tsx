@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { fetcher, api, money } from "@/lib/api";
 import { useEntity, withEntity } from "@/lib/entity-context";
+import { useDateFilter } from "@/lib/use-date-filter";
 
 const FREQS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"];
 
@@ -40,7 +41,8 @@ const refresh = () =>
 
 export default function Transactions() {
   const { selected } = useEntity();
-  const { data: txs, mutate: mutateTxs } = useSWR(withEntity("/api/transactions", selected), fetcher);
+  const { buildQs, DateFilter } = useDateFilter("all");
+  const { data: txs, mutate: mutateTxs } = useSWR(buildQs(withEntity("/api/transactions", selected)), fetcher);
   const { data: entities } = useSWR("/api/entities", fetcher);
   const { data: categories } = useSWR("/api/categories", fetcher);
   const [recurringOpen, setRecurringOpen] = useState<number | null>(null);
@@ -148,7 +150,10 @@ export default function Transactions() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-6">Transactions</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 className="text-2xl font-semibold">Transactions</h1>
+        {DateFilter}
+      </div>
 
       <form onSubmit={add} className="card mb-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 items-end">
         <Field label="Entity">

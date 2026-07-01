@@ -55,6 +55,8 @@ def delete_holding(
 @router.get("/cgt-events", response_model=list[schemas.CgtEventOut])
 def list_cgt(
     entity_id: int | None = None,
+    start: str | None = None,
+    end: str | None = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -64,6 +66,10 @@ def list_cgt(
         if entity_id not in eids:
             raise HTTPException(403, "Forbidden")
         q = q.filter_by(entity_id=entity_id)
+    if start:
+        q = q.filter(models.CgtEvent.date >= start)
+    if end:
+        q = q.filter(models.CgtEvent.date <= end)
     return q.order_by(models.CgtEvent.date.desc()).all()
 
 

@@ -5,6 +5,7 @@ import useSWR, { mutate } from "swr";
 import { fetcher, api, money } from "@/lib/api";
 import { BusinessProfile } from "@/components/BusinessProfile";
 import { useEntity, withEntity } from "@/lib/entity-context";
+import { useDateFilter } from "@/lib/use-date-filter";
 
 const STATUS: Record<string, string> = {
   draft: "bg-panel2 text-muted", sent: "bg-accent/15 text-accent",
@@ -18,7 +19,8 @@ const refreshInvoices = () =>
 
 export default function Invoices() {
   const { selected } = useEntity();
-  const { data: invoices } = useSWR(withEntity("/api/invoices", selected), fetcher);
+  const { buildQs, DateFilter } = useDateFilter("all");
+  const { data: invoices } = useSWR(buildQs(withEntity("/api/invoices", selected)), fetcher);
   const { data: entities } = useSWR("/api/entities", fetcher);
   const { data: clients } = useSWR("/api/clients", fetcher);
 
@@ -127,9 +129,12 @@ export default function Invoices() {
               : `Showing ${entities?.find((e: any) => e.id === selected)?.name ?? ""}`}
           </div>
         </div>
-        <button className="btn" onClick={() => { setShowCreate(!showCreate); setShowProfile(false); }}>
-          + New invoice
-        </button>
+        <div className="flex items-center gap-3">
+          {DateFilter}
+          <button className="btn shrink-0" onClick={() => { setShowCreate(!showCreate); setShowProfile(false); }}>
+            + New invoice
+          </button>
+        </div>
       </div>
 
       {stats && (
