@@ -10,19 +10,19 @@ import { useAuth } from "@/lib/auth-context";
 const links = [
   { href: "/", label: "Dashboard", icon: "▦" },
   { href: "/transactions", label: "Transactions", icon: "↕" },
-  { href: "/invoices", label: "Invoices", icon: "🧾" },
+  { href: "/deductions", label: "Deductions", icon: "✓" },
+  { href: "/recurring", label: "Recurring", icon: "↻" },
+  { href: "/receipts", label: "Receipts", icon: "📎" },
+  { href: "/commitments", label: "Commitments", icon: "📋" },
   { href: "/pnl", label: "Profit & Loss", icon: "📊" },
-  { href: "/businesses", label: "Manage Businesses", icon: "⚙" },
   { href: "/investments", label: "Investments", icon: "📈" },
   { href: "/networth", label: "Net Worth", icon: "🏦" },
-  { href: "/recurring", label: "Recurring", icon: "↻" },
-  { href: "/deductions", label: "Deductions", icon: "✓" },
-  { href: "/receipts", label: "Receipts", icon: "📎" },
-  { href: "/import", label: "Import CSV", icon: "⬆" },
-  { href: "/commitments", label: "Commitments", icon: "📋" },
-  { href: "/clients", label: "Clients", icon: "👤" },
+  null,
+  { href: "/clients", label: "Clients", icon: "🤝" },
+  { href: "/invoices", label: "Invoices", icon: "🧾" },
   { href: "/connections", label: "Connections", icon: "⚡" },
-  { href: "/profile", label: "Profile", icon: "👤" },
+  { href: "/businesses", label: "Manage Businesses", icon: "⚙" },
+  { href: "/import", label: "Import CSV", icon: "⬆" },
 ];
 
 export function Nav() {
@@ -48,7 +48,7 @@ export function Nav() {
     router.push("/login");
   }
 
-  const currentPage = links.find(l => l.href === path);
+  const currentPage = links.find(l => l && l.href === path);
 
   return (
     <>
@@ -82,12 +82,15 @@ export function Nav() {
         </div>
 
         <nav className="flex flex-col gap-1 flex-1 overflow-y-auto">
-          {links.map(({ href, label }) => (
-            <Link key={href} href={href}
-              className={`nav-link ${path === href ? "nav-link-active" : ""}`}>
-              {label}
-            </Link>
-          ))}
+          {links.map((link, i) => link === null
+            ? <div key={`sep-${i}`} className="my-2 border-t border-border" />
+            : (
+              <Link key={link.href} href={link.href}
+                className={`nav-link ${path === link.href ? "nav-link-active" : ""}`}>
+                {link.label}
+              </Link>
+            )
+          )}
         </nav>
       </aside>
 
@@ -171,14 +174,13 @@ export function Nav() {
 
         {/* Nav links */}
         <nav className="flex-1 overflow-y-auto px-3 py-3">
-          {links.map(({ href, label, icon }) => {
-            const active = path === href;
+          {links.map((link, i) => {
+            if (link === null) return <div key={`sep-${i}`} className="my-2 border-t border-border" />;
+            const active = path === link.href;
             return (
-              <Link key={href} href={href}
+              <Link key={link.href} href={link.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 text-sm transition-all duration-150 ${
-                  active
-                    ? "text-white font-medium"
-                    : "text-muted hover:text-white"
+                  active ? "text-white font-medium" : "text-muted hover:text-white"
                 }`}
                 style={active ? {
                   background: "rgba(91,140,255,0.15)",
@@ -188,11 +190,9 @@ export function Nav() {
                   border: "1px solid transparent",
                 }}
               >
-                <span className="text-base w-6 text-center opacity-80">{icon}</span>
-                <span>{label}</span>
-                {active && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />
-                )}
+                <span className="text-base w-6 text-center opacity-80">{link.icon}</span>
+                <span>{link.label}</span>
+                {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-accent" />}
               </Link>
             );
           })}
