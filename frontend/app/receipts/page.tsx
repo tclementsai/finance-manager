@@ -45,7 +45,8 @@ export default function Receipts() {
   }
 
   function fileUrl(r: any) {
-    return `/api/receipts/${r.id}/file`;
+    const token = getToken();
+    return `/api/receipts/${r.id}/file${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   }
 
   const isPdf = (r: any) => r.file_path?.toLowerCase().endsWith(".pdf");

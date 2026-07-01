@@ -1,6 +1,6 @@
 import os
 import uuid
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -50,11 +50,21 @@ async def upload_receipt(
 @router.get("/{receipt_id}/file")
 def serve_receipt(
     receipt_id: int,
+    request: Request,
+    token: str | None = None,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
+    from .auth import decode_token
+    auth_header = request.headers.get("authorization", "")
+    raw = token or (auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else None)
+    if not raw:
+        raise HTTPException(401, "Not authenticated")
+    user_id = decode_token(raw)
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(401, "User not found")
     r = db.get(models.Receipt, receipt_id)
-    if not r or r.user_id != current_user.id:
+    if not r or r.user_id != user.id:
         raise HTTPException(404, "Receipt not found")
     if not os.path.exists(r.file_path):
         raise HTTPException(404, "File not found on disk")
