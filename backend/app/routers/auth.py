@@ -245,3 +245,40 @@ def me(user: models.User = Depends(current_user)):
         "username": user.username,
         "two_factor_enabled": bool(user.totp_enabled),
     }
+
+
+class UpdateProfileIn(BaseModel):
+    email: str | None = None
+    current_password: str | None = None
+    new_password: str | None = None
+
+
+@router.patch("/me")
+def update_me(
+    body: UpdateProfileIn,
+    user: models.User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    if body.email is not None:
+        new_email = body.email.strip().lower()
+        if len(new_email) < 3 or "@" not in new_email:
+            raise HTTPException(400, "Invalid email address")
+        taken = db.query(models.User).filter(
+            models.User.username == new_email,
+            models.User.id != user.id,
+        ).first()
+        if taken:
+            raise HTTPException(409, "That email is already in use")
+        user.username = new_email
+
+    if body.new_password is not None:
+        if not body.current_password:
+            raise HTTPException(400, "Current password is required to set a new password")
+        if not _verify(body.current_password, user.password_hash):
+            raise HTTPException(401, "Current password is incorrect")
+        if len(body.new_password) < 6:
+            raise HTTPException(400, "New password must be at least 6 characters")
+        user.password_hash = _hash(body.new_password)
+
+    db.commit()
+    return {"user_id": user.id, "username": user.username}

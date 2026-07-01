@@ -22,6 +22,7 @@ const links = [
   { href: "/commitments", label: "Commitments", icon: "📋" },
   { href: "/clients", label: "Clients", icon: "👤" },
   { href: "/connections", label: "Connections", icon: "⚡" },
+  { href: "/profile", label: "Profile", icon: "👤" },
 ];
 
 export function Nav() {
