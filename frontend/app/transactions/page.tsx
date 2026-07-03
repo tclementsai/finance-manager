@@ -273,7 +273,7 @@ export default function Transactions() {
             <col />
             <col className="w-[128px] hidden sm:table-column" />
             <col className="w-[88px]" />
-            <col className="w-[72px] md:w-[172px]" />
+            <col className="w-[88px] md:w-[176px]" />
           </colgroup>
           <thead><tr>
             <th className="th">Date</th>
@@ -360,65 +360,39 @@ export default function Transactions() {
                       {t.direction === "in" ? "+" : "−"}{money(t.amount_cents)}
                     </td>
                     <td className="td">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1.5">
                         {t.direction === "out" && (
                           <>
-                            {/* Deductible — desktop pill */}
                             <button
                               aria-label={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
                               title={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
-                              className={`hidden md:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium transition-colors ${
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium transition-colors ${
                                 t.is_deductible
                                   ? "bg-good/15 text-good hover:bg-bad/15 hover:text-bad"
                                   : "text-muted hover:text-good hover:bg-good/10 border border-border"
                               }`}
                               onClick={() => toggleDeductible(t.id, t.is_deductible)}
                             >
-                              ✓ {t.is_deductible ? "Deductible" : "Deduct"}
-                            </button>
-                            {/* Deductible — mobile icon */}
-                            <button
-                              aria-label={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
-                              className={`md:hidden text-xs px-1 py-0.5 rounded transition-colors ${
-                                t.is_deductible
-                                  ? "bg-good/15 text-good hover:bg-bad/15 hover:text-bad"
-                                  : "text-muted hover:text-good hover:bg-good/10"
-                              }`}
-                              onClick={() => toggleDeductible(t.id, t.is_deductible)}
-                            >
-                              {t.is_deductible ? "✓" : "ded"}
+                              ✓<span className="hidden md:inline">&nbsp;{t.is_deductible ? "Deductible" : "Deduct"}</span>
                             </button>
                             {t.is_deductible && (
-                              <ReceiptUpload
-                                txId={t.id}
-                                hasReceipt={!!t.receipt_id}
-                                onDone={refresh}
-                              />
+                              <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
                             )}
-                            {/* Recurring — desktop pill */}
                             <button
                               aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
                               title={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
-                              className={`hidden md:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium transition-colors ${
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium transition-colors ${
                                 t.is_recurring
                                   ? "bg-accent/15 text-accent hover:bg-accent/25"
                                   : "text-muted hover:text-accent hover:bg-accent/10 border border-border"
                               }`}
                               onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
                             >
-                              ↻ {t.is_recurring ? "Recurring" : "Repeat"}
-                            </button>
-                            {/* Recurring — mobile icon */}
-                            <button
-                              aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
-                              className={`md:hidden text-xs ${t.is_recurring ? "text-accent" : "text-muted hover:text-accent"}`}
-                              onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
-                            >
-                              ↻
+                              ↻<span className="hidden md:inline">&nbsp;{t.is_recurring ? "Recurring" : "Repeat"}</span>
                             </button>
                           </>
                         )}
-                        <button aria-label="Delete transaction" onClick={() => del(t.id)} className="text-muted hover:text-bad text-xs px-1">×</button>
+                        <button aria-label="Delete transaction" onClick={() => del(t.id)} className="text-muted hover:text-bad text-xs px-1 py-1">×</button>
                       </div>
                     </td>
                   </tr>

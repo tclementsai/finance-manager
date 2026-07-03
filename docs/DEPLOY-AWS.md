@@ -59,8 +59,8 @@ sudo apt update && sudo apt install -y python3-pip python3-venv git
 
 ```bash
 cd /home/ubuntu
-git clone https://github.com/<your-username>/<your-repo>.git ledger
-cd ledger/backend
+git clone https://github.com/<your-username>/<your-repo>.git finance-manager
+cd finance-manager/backend
 ```
 
 > If your repo is private, use a GitHub personal access token:
