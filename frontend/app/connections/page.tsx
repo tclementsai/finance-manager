@@ -166,6 +166,31 @@ export default function Connections() {
     setAddEntityId(String(defaultEntityId || ""));
   }
 
+  const [exporting, setExporting] = useState(false);
+  const [exportErr, setExportErr] = useState("");
+
+  async function downloadExport() {
+    setExporting(true); setExportErr("");
+    try {
+      const token = localStorage.getItem("ledger.token");
+      const res = await fetch("/api/settings/export", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `finance-manager-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setExportErr(String(e.message || e));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
@@ -174,6 +199,24 @@ export default function Connections() {
           Manage bank and app connections. Live connections sync automatically; manual accounts let you track any balance by updating it yourself.
         </p>
       </div>
+
+      {/* ── Backup & Export ── */}
+      <section className="mb-8">
+        <div className="stat-label mb-3">Backup & export</div>
+        <div className="card flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div className="font-medium text-sm">Export all data</div>
+            <div className="text-xs text-muted mt-0.5">
+              Download a full JSON snapshot of your transactions, entities, categories and more. Keep a copy in case the server is ever lost.
+            </div>
+            {exportErr && <div className="text-bad text-xs mt-1">{exportErr}</div>}
+          </div>
+          <button className="btn-ghost text-sm shrink-0 flex items-center gap-2" onClick={downloadExport} disabled={exporting}>
+            <span>⬇</span>
+            {exporting ? "Exporting…" : "Download backup"}
+          </button>
+        </div>
+      </section>
 
       {/* ── Live connections ── */}
       <section className="mb-8">

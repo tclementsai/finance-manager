@@ -273,7 +273,7 @@ export default function Transactions() {
             <col />
             <col className="w-[128px] hidden sm:table-column" />
             <col className="w-[88px]" />
-            <col className="w-[88px] md:w-[176px]" />
+            <col className="w-[110px]" />
           </colgroup>
           <thead><tr>
             <th className="th">Date</th>
@@ -373,7 +373,7 @@ export default function Transactions() {
                               }`}
                               onClick={() => toggleDeductible(t.id, t.is_deductible)}
                             >
-                              ✓<span className="hidden md:inline">&nbsp;{t.is_deductible ? "Deductible" : "Deduct"}</span>
+                              {t.is_deductible ? "✓ ded" : "ded"}
                             </button>
                             {t.is_deductible && (
                               <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
@@ -388,7 +388,7 @@ export default function Transactions() {
                               }`}
                               onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
                             >
-                              ↻<span className="hidden md:inline">&nbsp;{t.is_recurring ? "Recurring" : "Repeat"}</span>
+                              {t.is_recurring ? "↻ rep" : "rep"}
                             </button>
                           </>
                         )}

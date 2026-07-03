@@ -190,11 +190,54 @@ async def _hourly_up_sync():
         await asyncio.sleep(INTERVAL)
 
 
+async def _nightly_backup():
+    """Push a JSON snapshot to S3 once per day if BACKUP_S3_BUCKET is set."""
+    import os, json, boto3
+    from datetime import timezone
+    from .routers.settings import export_data as _export
+
+    bucket = os.environ.get("BACKUP_S3_BUCKET")
+    if not bucket:
+        return  # nothing to do
+
+    await asyncio.sleep(120)  # let the server fully start first
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                for user in db.query(models.User).all():
+                    try:
+                        payload = _export.__wrapped__(db=db, user=user) if hasattr(_export, '__wrapped__') else None
+                        # Build payload directly
+                        eids = [e.id for e in db.query(models.Entity).filter_by(user_id=user.id).all()]
+                        from datetime import datetime
+                        def row(obj): return {c.name: str(getattr(obj, c.name)) if not isinstance(getattr(obj, c.name), (int, float, bool, type(None))) else getattr(obj, c.name) for c in obj.__table__.columns}
+                        payload = {
+                            "exported_at": datetime.now(timezone.utc).isoformat(),
+                            "version": 1,
+                            "transactions": [row(r) for r in db.query(models.Transaction).filter(models.Transaction.entity_id.in_(eids)).all()],
+                            "entities": [row(r) for r in db.query(models.Entity).filter(models.Entity.id.in_(eids)).all()],
+                            "categories": [row(r) for r in db.query(models.Category).all()],
+                            "accounts": [row(r) for r in db.query(models.Account).filter(models.Account.entity_id.in_(eids)).all()],
+                        }
+                        key = f"backups/user-{user.id}/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}.json"
+                        boto3.client("s3").put_object(Bucket=bucket, Key=key, Body=json.dumps(payload), ContentType="application/json")
+                        logger.info("Nightly backup uploaded for user %s → s3://%s/%s", user.id, bucket, key)
+                    except Exception as e:
+                        logger.warning("Backup failed for user %s: %s", user.id, e)
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning("Nightly backup error: %s", e)
+        await asyncio.sleep(86400)  # 24 hours
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(_hourly_up_sync())
+    tasks = [asyncio.create_task(_hourly_up_sync()), asyncio.create_task(_nightly_backup())]
     yield
-    task.cancel()
+    for t in tasks:
+        t.cancel()
 
 
 if cfg.is_using_defaults():
