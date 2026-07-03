@@ -12,8 +12,10 @@ bcrypt==4.2.1
 pyotp==2.9.0
 qrcode[pil]==8.0
 pdfplumber
-python-jose[cryptography]==3.3.0
+python-jose[cryptography]==3.4.0
 # Optional / Postgres
 psycopg2-binary==2.9.10
+# S3 backups (optional, used only if BACKUP_S3_BUCKET is set)
+boto3==1.35.90
 # OCR (optional, used only if configured)
 # google-cloud-documentai==3.2.0
