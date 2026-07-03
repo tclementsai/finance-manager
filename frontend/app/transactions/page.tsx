@@ -265,23 +265,15 @@ export default function Transactions() {
         </div>
       </div>
 
-      <div className="card p-0 overflow-hidden overflow-x-auto">
-        <table className="w-full table-fixed">
-          <colgroup>
-            <col className="w-[72px]" />
-            <col className="w-[110px] hidden lg:table-column" />
-            <col />
-            <col className="w-[128px] hidden sm:table-column" />
-            <col className="w-[88px]" />
-            <col className="w-[110px]" />
-          </colgroup>
+      <div className="card p-0 overflow-x-auto">
+        <table className="w-full min-w-[480px]">
           <thead><tr>
-            <th className="th">Date</th>
-            <th className="th hidden lg:table-cell">Entity</th>
+            <th className="th w-[72px]">Date</th>
+            <th className="th w-[110px] hidden lg:table-cell">Entity</th>
             <th className="th">Description</th>
-            <th className="th hidden sm:table-cell">Category</th>
-            <th className="th text-right">Amount</th>
-            <th className="th"></th>
+            <th className="th w-[130px] hidden sm:table-cell">Category</th>
+            <th className="th w-[90px] text-right whitespace-nowrap">Amount</th>
+            <th className="th w-[1px] whitespace-nowrap"></th>
           </tr></thead>
           <tbody>
             {txs?.map((t: any) => {
@@ -356,10 +348,10 @@ export default function Transactions() {
                         <span className="text-xs text-muted">{t.income_type || "income"}</span>
                       )}
                     </td>
-                    <td className={`td text-right font-medium tabular-nums ${t.direction === "in" ? "text-good" : "text-bad"}`}>
+                    <td className={`td text-right font-medium tabular-nums whitespace-nowrap ${t.direction === "in" ? "text-good" : "text-bad"}`}>
                       {t.direction === "in" ? "+" : "−"}{money(t.amount_cents)}
                     </td>
-                    <td className="td">
+                    <td className="td whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         {t.direction === "out" && (
                           <>
@@ -375,10 +367,11 @@ export default function Transactions() {
                             >
                               {t.is_deductible ? "✓ ded" : "ded"}
                             </button>
-                            {/* Always reserve space for receipt icon to avoid layout shift */}
-                            <span className={t.is_deductible ? "visible" : "invisible"}>
-                              <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
-                            </span>
+                            {t.is_deductible && (
+                              <span className="hidden sm:inline">
+                                <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
+                              </span>
+                            )}
                             <button
                               aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
                               title={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
