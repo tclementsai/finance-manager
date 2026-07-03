@@ -375,9 +375,10 @@ export default function Transactions() {
                             >
                               {t.is_deductible ? "✓ ded" : "ded"}
                             </button>
-                            {t.is_deductible && (
+                            {/* Always reserve space for receipt icon to avoid layout shift */}
+                            <span className={t.is_deductible ? "visible" : "invisible"}>
                               <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
-                            )}
+                            </span>
                             <button
                               aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
                               title={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
