@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
@@ -19,7 +19,7 @@ from .routers import (
 
 logger = logging.getLogger(__name__)
 
-settings = get_settings()
+cfg = get_settings()
 
 # Create tables on startup (dev). For prod use Alembic migrations.
 Base.metadata.create_all(bind=engine)
@@ -90,7 +90,7 @@ def _lightweight_migrate():
             if existing_admin:
                 admin_id = existing_admin[0]
             else:
-                pw_hash = hash_password(settings.app_password)
+                pw_hash = hash_password(cfg.app_password)
                 conn.execute(
                     text("INSERT INTO users (username, password_hash) VALUES (:u, :p)"),
                     {"u": admin_username, "p": pw_hash},
@@ -197,18 +197,18 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 
-if settings.is_using_defaults():
+if cfg.is_using_defaults():
     logger.warning(
-        "\n\n  ⚠  Running with default credentials (app_password='changeme').\n"
+        "\n\n  âš   Running with default credentials (app_password='changeme').\n"
         "     Set APP_PASSWORD, SECRET_KEY, and JWT_SECRET in your .env file before\n"
         "     exposing this app outside localhost.\n"
     )
 
-app = FastAPI(title="Ledger — Finance Manager API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Ledger â€” Finance Manager API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins(),
+    allow_origins=cfg.cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -217,10 +217,11 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "stripe": bool(settings.stripe_secret_key)}
+    return {"status": "ok", "stripe": bool(cfg.stripe_secret_key)}
 
 
 for r in (auth, entities, accounts, transactions, categories, imports,
           receipts, clients, invoices, investments, dashboard, up_banking, commitments,
           networth, settings):
     app.include_router(r.router)
+
