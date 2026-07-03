@@ -302,6 +302,15 @@ export default function Transactions() {
                             <span className="shrink-0 text-xs text-good">✓</span>
                           )}
                         </div>
+                        {/* Entity shown inline on mobile/tablet (< lg) */}
+                        <div className="lg:hidden">
+                          <button
+                            className="text-xs text-muted hover:text-accent transition-colors"
+                            onClick={() => setEntityOpen(entityOpen === t.id ? null : t.id)}
+                          >
+                            {entityName(t.entity_id)} ▾
+                          </button>
+                        </div>
                         {/* Category shown inline on mobile (< sm) */}
                         <div className="sm:hidden">
                           {t.direction === "out" && cat && (
