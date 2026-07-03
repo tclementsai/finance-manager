@@ -29,9 +29,10 @@ export async function api(path: string, opts: RequestInit = {}) {
       localStorage.removeItem("ledger.token");
       localStorage.removeItem("ledger.userId");
       localStorage.removeItem("ledger.username");
-      window.location.href = "/login";
+      // Use replace so the back button doesn't return to a broken page
+      window.location.replace("/login?expired=1");
     }
-    throw new Error("Not authenticated");
+    throw new Error("Session expired — please log in again");
   }
   if (!res.ok) {
     const body = await res.text();

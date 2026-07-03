@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get("expired") === "1";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -95,6 +97,11 @@ export default function LoginPage() {
         </div>
 
         <div className="card p-8">
+          {sessionExpired && (
+            <div className="text-warn text-sm bg-warn/10 border border-warn/20 rounded-lg px-3 py-2 mb-5">
+              Your session expired — please sign in again.
+            </div>
+          )}
           <h2 className="text-base font-semibold mb-6">Sign in</h2>
           <form onSubmit={submitCredentials} className="space-y-4">
             <div>

@@ -17,7 +17,7 @@ from ..database import get_db
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_DAYS = 30
+TOKEN_EXPIRE_DAYS = 365
 TOTP_PENDING_MINUTES = 5  # short-lived token between password step and TOTP step
 
 

@@ -260,6 +260,7 @@ def deduction_report(
             "business_use_pct": t.business_use_pct,
             "claimable_cents": claimable,
             "gst_cents": t.gst_cents,
+            "entity_id": t.entity_id,
         })
 
     total = sum(g["total_cents"] for g in groups.values())

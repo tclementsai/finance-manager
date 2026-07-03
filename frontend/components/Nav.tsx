@@ -21,7 +21,7 @@ const links = [
   { href: "/clients", label: "Clients", icon: "🤝" },
   { href: "/invoices", label: "Invoices", icon: "🧾" },
   { href: "/connections", label: "Connections", icon: "⚡" },
-  { href: "/businesses", label: "Manage Businesses", icon: "⚙" },
+  { href: "/businesses", label: "Manage Sources", icon: "⚙" },
   { href: "/import", label: "Import CSV", icon: "⬆" },
 ];
 

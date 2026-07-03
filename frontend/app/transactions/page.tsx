@@ -5,6 +5,43 @@ import { fetcher, api, money } from "@/lib/api";
 import { useEntity, withEntity } from "@/lib/entity-context";
 import { useDateFilter } from "@/lib/use-date-filter";
 
+function UpSyncButton({ entityId }: { entityId: number }) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ imported: number; pending: number } | null>(null);
+  const [err, setErr] = useState("");
+
+  async function sync() {
+    setLoading(true); setResult(null); setErr("");
+    try {
+      const res = await api("/api/up/sync", {
+        method: "POST",
+        body: JSON.stringify({ entity_id: entityId }),
+      });
+      setResult(res);
+      refresh();
+    } catch (e: any) {
+      setErr(String(e.message || e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button className="btn-ghost text-sm flex items-center gap-1.5" onClick={sync} disabled={loading}>
+        <span className={loading ? "animate-spin inline-block" : ""}>↻</span>
+        {loading ? "Syncing…" : "Sync UP"}
+      </button>
+      {result && (
+        <span className="text-xs text-good">
+          {result.imported} imported{result.pending > 0 ? `, ${result.pending} pending` : ""}
+        </span>
+      )}
+      {err && <span className="text-xs text-bad">{err}</span>}
+    </div>
+  );
+}
+
 const FREQS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"];
 
 async function uploadAndLinkReceipt(txId: number, file: File, onDone: () => void) {
@@ -206,7 +243,7 @@ export default function Transactions() {
         <button className="btn h-9 col-span-2 md:col-span-1">Add</button>
       </form>
 
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="text-sm text-muted">
           {autoResult && (
             <span className="text-good">
@@ -215,27 +252,35 @@ export default function Transactions() {
             </span>
           )}
         </div>
-        <button className="btn-ghost text-sm" onClick={runAutoCategorise} disabled={autoRunning}>
-          {autoRunning ? "Running…" : "✦ Auto-categorise all"}
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Show sync button for each UP-connected entity in scope */}
+          {(entities || [])
+            .filter((e: any) => e.up_connected && (selected === "all" || selected === e.id))
+            .map((e: any) => (
+              <UpSyncButton key={e.id} entityId={e.id} />
+            ))}
+          <button className="btn-ghost text-sm" onClick={runAutoCategorise} disabled={autoRunning}>
+            {autoRunning ? "Running…" : "✦ Auto-categorise all"}
+          </button>
+        </div>
       </div>
 
       <div className="card p-0 overflow-hidden overflow-x-auto">
-        <table className="w-full table-fixed min-w-[480px]">
+        <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-[80px]" />
-            <col className="w-[80px]" />
+            <col className="w-[72px]" />
+            <col className="w-[110px] hidden lg:table-column" />
             <col />
-            <col className="w-[128px]" />
+            <col className="w-[128px] hidden sm:table-column" />
             <col className="w-[88px]" />
-            <col className="w-[80px]" />
+            <col className="w-[72px] md:w-[172px]" />
           </colgroup>
           <thead><tr>
-            <th className="th overflow-hidden">Date</th>
-            <th className="th overflow-hidden hidden lg:table-cell">Entity</th>
-            <th className="th overflow-hidden">Description</th>
-            <th className="th overflow-hidden">Category</th>
-            <th className="th overflow-hidden text-right">Amount</th>
+            <th className="th">Date</th>
+            <th className="th hidden lg:table-cell">Entity</th>
+            <th className="th">Description</th>
+            <th className="th hidden sm:table-cell">Category</th>
+            <th className="th text-right">Amount</th>
             <th className="th"></th>
           </tr></thead>
           <tbody>
@@ -247,7 +292,7 @@ export default function Transactions() {
                     <td className="td text-xs tabular-nums">{t.date}</td>
                     <td className="td text-xs hidden lg:table-cell">
                       <button
-                        className="text-muted hover:text-accent transition-colors truncate max-w-full block"
+                        className="text-muted hover:text-accent transition-colors text-left leading-snug break-words w-full"
                         title="Click to reassign entity"
                         onClick={() => setEntityOpen(entityOpen === t.id ? null : t.id)}
                       >
@@ -255,17 +300,37 @@ export default function Transactions() {
                       </button>
                     </td>
                     <td className="td max-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="truncate">{t.description}</span>
-                        {t.is_recurring && (
-                          <span className="shrink-0 text-xs text-accent">↻</span>
-                        )}
-                        {t.is_deductible && (
-                          <span className="shrink-0 text-xs text-good">✓</span>
-                        )}
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="truncate">{t.description}</span>
+                          {t.is_recurring && (
+                            <span className="shrink-0 text-xs text-accent">↻</span>
+                          )}
+                          {t.is_deductible && (
+                            <span className="shrink-0 text-xs text-good">✓</span>
+                          )}
+                        </div>
+                        {/* Category shown inline on mobile (< sm) */}
+                        <div className="sm:hidden">
+                          {t.direction === "out" && cat && (
+                            <span className={`inline-block text-xs px-1.5 py-0.5 rounded-full ${catColor(cat.name)}`}>
+                              {cat.name}
+                            </span>
+                          )}
+                          {t.direction === "out" && !cat && (
+                            <CategoryCombo
+                              categories={expenseCategories}
+                              onSelect={(id) => setCategory(t, id)}
+                              onCreate={(name) => createAndSetCategory(t, name)}
+                            />
+                          )}
+                          {t.direction === "in" && (
+                            <span className="text-xs text-muted">{t.income_type || "income"}</span>
+                          )}
+                        </div>
                       </div>
                     </td>
-                    <td className="td">
+                    <td className="td hidden sm:table-cell">
                       {t.direction === "out" ? (
                         cat ? (
                           <div className="flex items-center gap-1 group min-w-0">
@@ -295,13 +360,26 @@ export default function Transactions() {
                       {t.direction === "in" ? "+" : "−"}{money(t.amount_cents)}
                     </td>
                     <td className="td">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1">
                         {t.direction === "out" && (
                           <>
+                            {/* Deductible — desktop pill */}
                             <button
                               aria-label={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
                               title={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
-                              className={`text-xs px-1 py-0.5 rounded transition-colors ${
+                              className={`hidden md:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium transition-colors ${
+                                t.is_deductible
+                                  ? "bg-good/15 text-good hover:bg-bad/15 hover:text-bad"
+                                  : "text-muted hover:text-good hover:bg-good/10 border border-border"
+                              }`}
+                              onClick={() => toggleDeductible(t.id, t.is_deductible)}
+                            >
+                              ✓ {t.is_deductible ? "Deductible" : "Deduct"}
+                            </button>
+                            {/* Deductible — mobile icon */}
+                            <button
+                              aria-label={t.is_deductible ? "Remove deductible flag" : "Mark as tax deductible"}
+                              className={`md:hidden text-xs px-1 py-0.5 rounded transition-colors ${
                                 t.is_deductible
                                   ? "bg-good/15 text-good hover:bg-bad/15 hover:text-bad"
                                   : "text-muted hover:text-good hover:bg-good/10"
@@ -317,16 +395,30 @@ export default function Transactions() {
                                 onDone={refresh}
                               />
                             )}
+                            {/* Recurring — desktop pill */}
                             <button
                               aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
-                              className={`text-xs ${t.is_recurring ? "text-accent" : "text-muted hover:text-accent"}`}
+                              title={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
+                              className={`hidden md:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-medium transition-colors ${
+                                t.is_recurring
+                                  ? "bg-accent/15 text-accent hover:bg-accent/25"
+                                  : "text-muted hover:text-accent hover:bg-accent/10 border border-border"
+                              }`}
+                              onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
+                            >
+                              ↻ {t.is_recurring ? "Recurring" : "Repeat"}
+                            </button>
+                            {/* Recurring — mobile icon */}
+                            <button
+                              aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
+                              className={`md:hidden text-xs ${t.is_recurring ? "text-accent" : "text-muted hover:text-accent"}`}
                               onClick={() => setRecurringOpen(recurringOpen === t.id ? null : t.id)}
                             >
                               ↻
                             </button>
                           </>
                         )}
-                        <button aria-label="Delete transaction" onClick={() => del(t.id)} className="text-muted hover:text-bad text-xs">×</button>
+                        <button aria-label="Delete transaction" onClick={() => del(t.id)} className="text-muted hover:text-bad text-xs px-1">×</button>
                       </div>
                     </td>
                   </tr>
