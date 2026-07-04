@@ -4,8 +4,5 @@
     "docker": "docker compose up --build",
     "docker:down": "docker compose down",
     "docker:reset": "docker compose down -v && docker compose up --build"
-  },
-  "dependencies": {
-    "docker": "^1.0.0"
   }
 }
