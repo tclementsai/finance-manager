@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     doc_ai_processor: str = ""
 
     upload_dir: str = "./uploads"
+    receipt_s3_bucket: str = ""   # optional: store receipts in S3 for persistence
     default_tax_rate: float = 0.30
 
     def cors_origins(self) -> List[str]:

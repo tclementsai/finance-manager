@@ -377,9 +377,7 @@ export default function Transactions() {
                               {t.is_deductible ? "✓ ded" : "ded"}
                             </button>
                             {t.is_deductible && (
-                              <span className="hidden sm:inline">
-                                <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
-                              </span>
+                              <ReceiptUpload txId={t.id} hasReceipt={!!t.receipt_id} onDone={refresh} />
                             )}
                             <button
                               aria-label={t.is_recurring ? "Edit recurring schedule" : "Mark as recurring"}
@@ -544,6 +542,7 @@ function ReceiptUpload({ txId, hasReceipt, onDone }: { txId: number; hasReceipt:
         ref={inputRef}
         type="file"
         accept="image/*,application/pdf"
+        capture="environment"
         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         onChange={handleFile}
         disabled={uploading}

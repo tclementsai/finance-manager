@@ -202,19 +202,29 @@ export default function Connections() {
 
       {/* ── Backup & Export ── */}
       <section className="mb-8">
-        <div className="stat-label mb-3">Backup & export</div>
-        <div className="card flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <div className="font-medium text-sm">Export all data</div>
-            <div className="text-xs text-muted mt-0.5">
-              Download a full JSON snapshot of your transactions, entities, categories and more. Keep a copy in case the server is ever lost.
+        <div className="stat-label mb-3">Backup & storage</div>
+        <div className="flex flex-col gap-3">
+          <div className="card flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="font-medium text-sm">Export all data</div>
+              <div className="text-xs text-muted mt-0.5">
+                Download a full JSON snapshot of your transactions, entities, categories and more.
+              </div>
+              {exportErr && <div className="text-bad text-xs mt-1">{exportErr}</div>}
             </div>
-            {exportErr && <div className="text-bad text-xs mt-1">{exportErr}</div>}
+            <button className="btn-ghost text-sm shrink-0 flex items-center gap-2" onClick={downloadExport} disabled={exporting}>
+              <span>⬇</span>
+              {exporting ? "Exporting…" : "Download backup"}
+            </button>
           </div>
-          <button className="btn-ghost text-sm shrink-0 flex items-center gap-2" onClick={downloadExport} disabled={exporting}>
-            <span>⬇</span>
-            {exporting ? "Exporting…" : "Download backup"}
-          </button>
+          <div className="card">
+            <div className="font-medium text-sm mb-1">Receipt storage</div>
+            <div className="text-xs text-muted">
+              Receipts are stored on the server&apos;s local disk by default (<code className="text-xs bg-surface-2 px-1 rounded">./uploads</code>).
+              To persist receipts across server restarts, set <code className="text-xs bg-surface-2 px-1 rounded">RECEIPT_S3_BUCKET=your-bucket-name</code> in the backend <code className="text-xs bg-surface-2 px-1 rounded">.env</code> file.
+              The EC2 instance needs an IAM role with <code className="text-xs bg-surface-2 px-1 rounded">s3:PutObject</code>, <code className="text-xs bg-surface-2 px-1 rounded">s3:GetObject</code>, and <code className="text-xs bg-surface-2 px-1 rounded">s3:DeleteObject</code> on that bucket.
+            </div>
+          </div>
         </div>
       </section>
 
