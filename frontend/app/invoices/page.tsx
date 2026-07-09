@@ -97,7 +97,19 @@ export default function Invoices() {
     refreshInvoices();
   }
 
-  async function send(id: number) { await api(`/api/invoices/${id}/send`, { method: "POST" }); refreshInvoices(); }
+  const [sending, setSending] = useState<number | null>(null);
+  const [sendErr, setSendErr] = useState<string>("");
+  async function send(id: number) {
+    setSending(id); setSendErr("");
+    try {
+      await api(`/api/invoices/${id}/send`, { method: "POST" });
+      refreshInvoices();
+    } catch (e: any) {
+      setSendErr(e.message || "Send failed");
+    } finally {
+      setSending(null);
+    }
+  }
   async function markPaid(id: number) { await api(`/api/invoices/${id}/mark-paid`, { method: "POST" }); refreshInvoices(); }
   const [confirmDeleteInv, setConfirmDeleteInv] = useState<number | null>(null);
   async function deleteInvoice(id: number) {
@@ -333,7 +345,12 @@ export default function Invoices() {
                 <td className="td"><span className={`px-2 py-0.5 rounded text-xs ${STATUS[inv.status]}`}>{inv.status}</span></td>
                 <td className="td text-right space-x-3 whitespace-nowrap">
                   <Link href={`/invoices/${inv.id}`} className="text-accent text-xs">view</Link>
-                  {inv.status === "draft" && <button className="text-accent text-xs" onClick={() => send(inv.id)}>send</button>}
+                  {inv.status === "draft" && (
+                    <button className="text-accent text-xs disabled:opacity-50" disabled={sending === inv.id} onClick={() => send(inv.id)}>
+                      {sending === inv.id ? "sending…" : "send"}
+                    </button>
+                  )}
+                  {sendErr && sending === null && <span className="text-bad text-xs">{sendErr}</span>}
                   {inv.hosted_url && inv.status !== "paid" && (
                     <a href={inv.hosted_url} target="_blank" rel="noreferrer" className="text-accent text-xs">pay</a>
                   )}
