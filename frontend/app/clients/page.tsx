@@ -3,7 +3,7 @@ import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { fetcher, api } from "@/lib/api";
 
-const EMPTY = { name: "", email: "", phone: "", address: "" };
+const EMPTY = { name: "", email: "", phone: "", address: "", abn: "", website: "", notes: "" };
 
 export default function Clients() {
   const { data: clients } = useSWR("/api/clients", fetcher);
@@ -24,7 +24,7 @@ export default function Clients() {
   function startEdit(c: any) {
     setEditId(c.id);
     setEntityId(String(c.entity_id));
-    setForm({ name: c.name || "", email: c.email || "", phone: c.phone || "", address: c.address || "" });
+    setForm({ name: c.name || "", email: c.email || "", phone: c.phone || "", address: c.address || "", abn: c.abn || "", website: c.website || "", notes: c.notes || "" });
   }
 
   function reset() { setEditId(null); setForm(EMPTY); setErr(""); }
@@ -93,6 +93,12 @@ export default function Clients() {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               <textarea className="input" placeholder="Address" rows={2} value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              <input className="input" placeholder="ABN (e.g. 51 824 753 556)" value={form.abn}
+                onChange={(e) => setForm({ ...form, abn: e.target.value })} />
+              <input className="input" placeholder="Website" value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })} />
+              <textarea className="input" placeholder="Notes" rows={2} value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
             {err && <div className="text-bad text-xs mt-2">{err}</div>}
             <div className="flex justify-end gap-2 mt-3">
@@ -108,16 +114,21 @@ export default function Clients() {
             <table className="w-full">
               <thead><tr>
                 <th className="th">Name</th><th className="th">Contact</th>
-                <th className="th">Business</th><th className="th text-right">Actions</th>
+                <th className="th hidden sm:table-cell">ABN</th>
+                <th className="th hidden lg:table-cell">Business</th><th className="th text-right">Actions</th>
               </tr></thead>
               <tbody>
                 {clients?.map((c: any) => (
                   <tr key={c.id} className="hover:bg-panel2/50">
-                    <td className="td font-medium">{c.name}</td>
+                    <td className="td font-medium">
+                      {c.name}
+                      {c.notes && <div className="text-xs text-muted truncate max-w-[180px]">{c.notes}</div>}
+                    </td>
                     <td className="td text-muted text-sm">
                       {c.email || "—"}{c.phone ? ` · ${c.phone}` : ""}
                     </td>
-                    <td className="td text-muted text-sm">{entityName(c.entity_id)}</td>
+                    <td className="td text-muted text-sm hidden sm:table-cell">{c.abn || "—"}</td>
+                    <td className="td text-muted text-sm hidden lg:table-cell">{entityName(c.entity_id)}</td>
                     <td className="td text-right space-x-3 whitespace-nowrap">
                       <button className="text-accent text-xs" onClick={() => startEdit(c)}>edit</button>
                       {confirmDelete === c.id ? (

@@ -142,6 +142,9 @@ class Client(Base):
     email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     address = Column(Text, nullable=True)
+    abn = Column(String, nullable=True)
+    website = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
 
 
 class Invoice(Base):

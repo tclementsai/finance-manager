@@ -59,6 +59,9 @@ def _lightweight_migrate():
     existing_clients = {c["name"] for c in insp.get_columns("clients")}
     client_additions = {
         "phone": "VARCHAR",
+        "abn": "VARCHAR",
+        "website": "VARCHAR",
+        "notes": "TEXT",
     }
     existing_tables = set(insp.get_table_names())
     existing_nwi = {c["name"] for c in insp.get_columns("net_worth_items")} if "net_worth_items" in existing_tables else set()

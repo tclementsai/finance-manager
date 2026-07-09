@@ -114,6 +114,9 @@ class ClientIn(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    abn: Optional[str] = None
+    website: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class ClientOut(ORM, ClientIn):

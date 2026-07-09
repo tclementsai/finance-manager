@@ -338,7 +338,7 @@ async def attach_receipt(tx_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{tx_id}/receipt/{receipt_id}", response_model=schemas.TransactionOut)
 def link_receipt(tx_id: int, receipt_id: int, db: Session = Depends(get_db)):
-    """Link an already-uploaded receipt to a transaction."""
+    """Link an already-uploaded receipt to a transaction and apply OCR fields."""
     tx = db.get(models.Transaction, tx_id)
     if not tx:
         raise HTTPException(404, "Transaction not found")
@@ -346,6 +346,11 @@ def link_receipt(tx_id: int, receipt_id: int, db: Session = Depends(get_db)):
     if not receipt:
         raise HTTPException(404, "Receipt not found")
     tx.receipt_id = receipt_id
+    # Auto-apply OCR data to the transaction if the fields aren't already set
+    if receipt.ocr_gst_cents and not tx.gst_cents:
+        tx.gst_cents = receipt.ocr_gst_cents
+    if receipt.ocr_date and not tx.date:
+        tx.date = receipt.ocr_date
     db.commit(); db.refresh(tx)
     return tx
 

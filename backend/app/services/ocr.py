@@ -1,9 +1,12 @@
 """Receipt OCR.
 
-If OCR_PROVIDER is configured (e.g. 'docai'), wire the cloud call here.
-Otherwise a lightweight heuristic parser extracts vendor/date/total/GST from
-plain text — useful for testing and for already-digital receipts.
+Priority order:
+  1. OCR_PROVIDER=docai  → Google Document AI
+  2. OCR_PROVIDER=claude → Anthropic vision (requires ANTHROPIC_API_KEY)
+  3. ANTHROPIC_API_KEY set (auto) → Anthropic vision, no config needed
+  4. Fallback → heuristic text parser (works for digital/PDF receipts only)
 """
+import base64
 import re
 from datetime import date
 from typing import Optional
@@ -42,7 +45,6 @@ def parse_text(text: str) -> dict:
     if g:
         gst = _to_cents(g.group(1))
     elif total:
-        # AU GST is 1/11 of a GST-inclusive total
         gst = round(total / 11)
 
     parsed_date: Optional[date] = None
@@ -63,11 +65,19 @@ def parse_text(text: str) -> dict:
 
 
 def ocr_image(file_bytes: bytes, content_type: str) -> dict:
-    """Run OCR on an uploaded receipt. Returns the same dict as parse_text."""
+    """Run OCR on an uploaded receipt."""
+    import os
     provider = settings.ocr_provider.lower()
+
     if provider == "docai":
         return _docai(file_bytes, content_type)
-    # No cloud OCR configured: try to treat upload as text, else return empty.
+
+    if provider == "claude" or (not provider and os.environ.get("ANTHROPIC_API_KEY")):
+        try:
+            return _claude_vision(file_bytes, content_type)
+        except Exception:
+            pass  # fall through to text heuristic
+
     try:
         text = file_bytes.decode("utf-8")
         return parse_text(text)
@@ -75,13 +85,98 @@ def ocr_image(file_bytes: bytes, content_type: str) -> dict:
         return {
             "ocr_vendor": None, "ocr_date": None,
             "ocr_total_cents": None, "ocr_gst_cents": None,
-            "ocr_raw": "(no OCR provider configured — set OCR_PROVIDER=docai and "
-                       "DOC_AI_PROCESSOR to auto-extract from images/PDFs)",
+            "ocr_raw": "(image OCR requires ANTHROPIC_API_KEY or OCR_PROVIDER=docai in .env)",
         }
 
 
+def _claude_vision(file_bytes: bytes, content_type: str) -> dict:
+    """Extract receipt details using Claude vision."""
+    import anthropic
+
+    # Map PDF to a supported media type for the vision API
+    if content_type == "application/pdf":
+        # Claude supports PDF natively via base64
+        media_type = "application/pdf"
+    elif content_type in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+        media_type = content_type
+    else:
+        media_type = "image/jpeg"
+
+    b64 = base64.standard_b64encode(file_bytes).decode("utf-8")
+
+    client = anthropic.Anthropic()
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=512,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image" if media_type != "application/pdf" else "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": b64,
+                    },
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "Extract the following from this receipt and reply with ONLY these lines, "
+                        "one per line, no labels:\n"
+                        "LINE1: vendor/store name\n"
+                        "LINE2: date in YYYY-MM-DD format (or blank)\n"
+                        "LINE3: total amount in dollars with 2 decimal places (or blank)\n"
+                        "LINE4: GST amount in dollars with 2 decimal places (or blank, "
+                        "if not shown calculate as total/11 for Australian receipts)\n"
+                        "Reply with exactly 4 lines, nothing else."
+                    ),
+                },
+            ],
+        }],
+    )
+
+    raw = msg.content[0].text.strip()
+    lines = [l.strip() for l in raw.splitlines()]
+    while len(lines) < 4:
+        lines.append("")
+
+    vendor = lines[0] or None
+
+    parsed_date = None
+    if lines[1]:
+        try:
+            parsed_date = dateparser.parse(lines[1], dayfirst=True, fuzzy=True).date()
+        except Exception:
+            pass
+
+    total = None
+    if lines[2]:
+        try:
+            total = _to_cents(lines[2].lstrip("$"))
+        except Exception:
+            pass
+
+    gst = None
+    if lines[3]:
+        try:
+            gst = _to_cents(lines[3].lstrip("$"))
+        except Exception:
+            pass
+    elif total:
+        gst = round(total / 11)
+
+    return {
+        "ocr_vendor": vendor,
+        "ocr_date": parsed_date,
+        "ocr_total_cents": total,
+        "ocr_gst_cents": gst,
+        "ocr_raw": raw,
+    }
+
+
 def _docai(file_bytes: bytes, content_type: str) -> dict:  # pragma: no cover
-    """Google Document AI receipt processor. Requires google-cloud-documentai."""
+    """Google Document AI receipt processor."""
     from google.cloud import documentai  # type: ignore
 
     client = documentai.DocumentProcessorServiceClient()

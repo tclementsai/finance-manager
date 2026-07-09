@@ -44,7 +44,7 @@ function UpSyncButton({ entityId }: { entityId: number }) {
 
 const FREQS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"];
 
-async function uploadAndLinkReceipt(txId: number, file: File, onDone: () => void) {
+async function uploadAndLinkReceipt(txId: number, file: File, onDone: () => void): Promise<{ vendor?: string; total?: number; gst?: number }> {
   const formData = new FormData();
   formData.append("file", file);
   const token = typeof window !== "undefined" ? localStorage.getItem("ledger.token") : null;
@@ -63,6 +63,11 @@ async function uploadAndLinkReceipt(txId: number, file: File, onDone: () => void
     },
   });
   onDone();
+  return {
+    vendor: receipt.ocr_vendor || undefined,
+    total: receipt.ocr_total_cents || undefined,
+    gst: receipt.ocr_gst_cents || undefined,
+  };
 }
 
 const CATEGORY_COLORS = [
@@ -520,14 +525,19 @@ function CategoryCombo({ categories, onSelect, onCreate }: {
 function ReceiptUpload({ txId, hasReceipt, onDone }: { txId: number; hasReceipt: boolean; onDone: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [extracted, setExtracted] = useState<{ vendor?: string; total?: number; gst?: number } | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true); setError("");
+    setUploading(true); setError(""); setExtracted(null);
     try {
-      await uploadAndLinkReceipt(txId, file, onDone);
+      const result = await uploadAndLinkReceipt(txId, file, onDone);
+      if (result.vendor || result.total) {
+        setExtracted(result);
+        setTimeout(() => setExtracted(null), 5000);
+      }
     } catch (err: any) {
       setError(err.message || "Upload failed");
     } finally {
@@ -537,24 +547,33 @@ function ReceiptUpload({ txId, hasReceipt, onDone }: { txId: number; hasReceipt:
   }
 
   return (
-    <span className="relative" title={hasReceipt ? "Receipt attached" : "Upload receipt"}>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*,application/pdf"
-        capture="environment"
-        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-        onChange={handleFile}
-        disabled={uploading}
-      />
-      <span className={`text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-        hasReceipt
-          ? "bg-accent/15 text-accent"
-          : "text-muted hover:text-accent hover:bg-accent/10"
-      }`}>
-        {uploading ? "…" : hasReceipt ? "📎" : "📎?"}
+    <span className="relative inline-flex items-center gap-1">
+      <span className="relative" title={hasReceipt ? "Receipt attached — tap to replace" : "Attach receipt or photo"}>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          capture="environment"
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+          onChange={handleFile}
+          disabled={uploading}
+        />
+        <span className={`text-xs px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+          hasReceipt
+            ? "bg-accent/15 text-accent"
+            : "text-muted hover:text-accent hover:bg-accent/10"
+        }`}>
+          {uploading ? "…" : hasReceipt ? "📎" : "📎?"}
+        </span>
       </span>
-      {error && <span className="text-bad text-xs ml-1">{error}</span>}
+      {extracted && (
+        <span className="absolute right-0 top-full mt-1 z-10 bg-surface border border-border rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap">
+          <div className="font-medium text-good mb-0.5">✓ Receipt scanned</div>
+          {extracted.vendor && <div className="text-muted">{extracted.vendor}</div>}
+          {extracted.total && <div className="text-muted">${(extracted.total / 100).toFixed(2)}{extracted.gst ? ` incl. $${(extracted.gst / 100).toFixed(2)} GST` : ""}</div>}
+        </span>
+      )}
+      {error && <span className="text-bad text-xs">{error}</span>}
     </span>
   );
 }
