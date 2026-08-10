@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import date
+from datetime import date as DateType  # alias: lets a Pydantic field be named `date`
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -308,6 +309,79 @@ def list_recurring(
         "items": items,
         "total_monthly_cents": total_monthly,
         "total_annual_cents": int(round(total_monthly * 12)),
+    }
+
+
+class PayYourselfIn(BaseModel):
+    from_entity_id: int
+    amount_cents: int
+    to_entity_id: Optional[int] = None
+    from_account_id: Optional[int] = None
+    to_account_id: Optional[int] = None
+    date: Optional[DateType] = None
+    description: Optional[str] = None
+
+
+@router.post("/pay-yourself")
+def pay_yourself(
+    body: PayYourselfIn,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Record paying yourself from a business.
+
+    Writes both sides in one action: a `drawing` out of the business (which
+    reduces business_retained without counting as a business expense) and a
+    matching `drawing` into personal (which lifts personal_income).
+    """
+    if body.amount_cents <= 0:
+        raise HTTPException(400, "Amount must be greater than zero")
+
+    eids = get_user_entity_ids(current_user, db)
+    entities = db.query(models.Entity).filter(models.Entity.id.in_(eids)).all()
+    by_id = {e.id: e for e in entities}
+
+    src = by_id.get(body.from_entity_id)
+    if not src:
+        raise HTTPException(404, "Business entity not found")
+    if src.kind == "personal":
+        raise HTTPException(400, "Pay yourself from a business, not a personal entity")
+
+    if body.to_entity_id is not None:
+        dest = by_id.get(body.to_entity_id)
+        if not dest:
+            raise HTTPException(404, "Personal entity not found")
+    else:
+        personals = [e for e in entities if e.kind == "personal"]
+        if len(personals) != 1:
+            raise HTTPException(
+                400,
+                f"Specify to_entity_id — found {len(personals)} personal entities",
+            )
+        dest = personals[0]
+
+    when = body.date or date.today()
+    label = body.description or f"Drawing from {src.name}"
+
+    out_tx = models.Transaction(
+        entity_id=src.id, account_id=body.from_account_id, date=when,
+        amount_cents=body.amount_cents, direction="out",
+        description=label, income_type="drawing",
+    )
+    in_tx = models.Transaction(
+        entity_id=dest.id, account_id=body.to_account_id, date=when,
+        amount_cents=body.amount_cents, direction="in",
+        description=label, income_type="drawing",
+    )
+    db.add_all([out_tx, in_tx]); db.commit()
+    db.refresh(out_tx); db.refresh(in_tx)
+    return {
+        "ok": True,
+        "business_txn_id": out_tx.id,
+        "personal_txn_id": in_tx.id,
+        "from_entity": src.name,
+        "to_entity": dest.name,
+        "amount_cents": body.amount_cents,
     }
 
 

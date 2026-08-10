@@ -42,6 +42,103 @@ function UpSyncButton({ entityId }: { entityId: number }) {
   );
 }
 
+function PayYourself({ entities, onDone }: { entities: any[]; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
+  const [form, setForm] = useState({
+    from_entity_id: "", to_entity_id: "", amount: "",
+    date: new Date().toISOString().slice(0, 10), description: "",
+  });
+
+  const businesses = (entities || []).filter((e: any) => e.kind !== "personal");
+  const personals = (entities || []).filter((e: any) => e.kind === "personal");
+  if (businesses.length === 0) return null;
+
+  const fromId = form.from_entity_id || String(businesses[0]?.id ?? "");
+  const toId = form.to_entity_id || String(personals[0]?.id ?? "");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const amt = parseFloat(form.amount);
+    if (!fromId || !amt || amt <= 0) return;
+    setSaving(true); setErr(""); setDone("");
+    try {
+      const res = await api("/api/transactions/pay-yourself", {
+        method: "POST",
+        body: JSON.stringify({
+          from_entity_id: Number(fromId),
+          to_entity_id: toId ? Number(toId) : null,
+          amount_cents: Math.round(amt * 100),
+          date: form.date,
+          description: form.description || null,
+        }),
+      });
+      setDone(`${money(res.amount_cents)} · ${res.from_entity} → ${res.to_entity}`);
+      setForm({ ...form, amount: "", description: "" });
+      onDone();
+    } catch (e: any) {
+      setErr(e.message || "Failed to record payment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button className="btn-ghost text-sm" onClick={() => setOpen(!open)}>
+        ⇄ Pay yourself
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 z-20 card w-[290px] shadow-xl">
+          <div className="flex items-center justify-between mb-3">
+            <div className="stat-label">Pay yourself</div>
+            <button className="text-muted hover:text-fg text-sm leading-none"
+              onClick={() => { setOpen(false); setDone(""); setErr(""); }}>✕</button>
+          </div>
+          <form onSubmit={submit} className="space-y-2">
+            <div>
+              <div className="field-label mb-1">From business</div>
+              <select className="input" value={fromId}
+                onChange={(e) => setForm({ ...form, from_entity_id: e.target.value })}>
+                {businesses.map((e: any) => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+            </div>
+            {personals.length > 1 && (
+              <div>
+                <div className="field-label mb-1">To personal</div>
+                <select className="input" value={toId}
+                  onChange={(e) => setForm({ ...form, to_entity_id: e.target.value })}>
+                  {personals.map((e: any) => (
+                    <option key={e.id} value={e.id}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <input className="input" type="number" step="0.01" min="0" placeholder="Amount $"
+              value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            <input className="input" type="date" value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            <input className="input" placeholder="Note (optional)" value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <button className="btn w-full" disabled={saving || !form.amount}>
+              {saving ? "Recording…" : "Record payment"}
+            </button>
+          </form>
+          {done && <div className="text-good text-xs mt-2">✓ {done}</div>}
+          {err && <div className="text-bad text-xs mt-2">{err}</div>}
+          <div className="text-xs text-muted mt-3 leading-snug">
+            Records a drawing out of the business and into personal income.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const FREQS = ["weekly", "fortnightly", "monthly", "quarterly", "annual"];
 
 async function uploadAndLinkReceipt(txId: number, file: File, onDone: () => void): Promise<{ vendor?: string; total?: number; gst?: number }> {
@@ -264,6 +361,7 @@ export default function Transactions() {
             .map((e: any) => (
               <UpSyncButton key={e.id} entityId={e.id} />
             ))}
+          <PayYourself entities={entities || []} onDone={refresh} />
           <button className="btn-ghost text-sm" onClick={runAutoCategorise} disabled={autoRunning}>
             {autoRunning ? "Running…" : "✦ Auto-categorise all"}
           </button>
