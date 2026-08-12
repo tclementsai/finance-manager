@@ -164,40 +164,95 @@ def _seed_accounts():
 _seed_accounts()
 
 
-async def _hourly_up_sync():
-    """Background task: sync all UP-connected entities once per hour."""
+def _run_up_sync_once():
+    """Sync every UP-connected entity. Blocking — must not run on the event loop."""
     from .routers.up_banking import _do_sync as _sync, SyncIn
 
+    db = SessionLocal()
+    try:
+        entities_with_token = db.query(models.Entity).filter(
+            models.Entity.up_api_token.isnot(None)
+        ).all()
+        since = (date.today() - timedelta(days=2)).isoformat()
+        for entity in entities_with_token:
+            try:
+                _sync(SyncIn(entity_id=entity.id, since=since), db)
+                logger.info("Auto-synced UP for entity %s", entity.id)
+            except Exception as exc:
+                logger.warning("Auto-sync failed for entity %s: %s", entity.id, exc)
+    finally:
+        db.close()
+
+
+async def _hourly_up_sync():
+    """Background task: sync all UP-connected entities once per hour.
+
+    The sync is synchronous (blocking httpx + SQLAlchemy), so it is dispatched
+    to a worker thread. Calling it directly here would stall the event loop for
+    the whole duration of the sync, during which uvicorn serves no requests at
+    all and the service looks dead from outside.
+    """
     INTERVAL = 3600  # seconds
     await asyncio.sleep(60)  # short initial delay so the server is fully up
 
     while True:
         try:
-            db = SessionLocal()
-            try:
-                entities_with_token = db.query(models.Entity).filter(
-                    models.Entity.up_api_token.isnot(None)
-                ).all()
-                since = (date.today() - timedelta(days=2)).isoformat()
-                for entity in entities_with_token:
-                    try:
-                        _sync(SyncIn(entity_id=entity.id, since=since), db)
-                        logger.info("Auto-synced UP for entity %s", entity.id)
-                    except Exception as exc:
-                        logger.warning("Auto-sync failed for entity %s: %s", entity.id, exc)
-            finally:
-                db.close()
+            await asyncio.to_thread(_run_up_sync_once)
         except Exception as exc:
             logger.warning("Hourly UP sync error: %s", exc)
 
         await asyncio.sleep(INTERVAL)
 
 
+def _run_backup_once(bucket: str):
+    """Upload a JSON snapshot per user to S3. Blocking — runs in a worker thread."""
+    import json, boto3
+    from datetime import datetime, timezone
+
+    def row(obj):
+        return {
+            c.name: (
+                getattr(obj, c.name)
+                if isinstance(getattr(obj, c.name), (int, float, bool, type(None)))
+                else str(getattr(obj, c.name))
+            )
+            for c in obj.__table__.columns
+        }
+
+    db = SessionLocal()
+    try:
+        s3 = boto3.client("s3")
+        for user in db.query(models.User).all():
+            try:
+                eids = [e.id for e in db.query(models.Entity).filter_by(user_id=user.id).all()]
+                payload = {
+                    "exported_at": datetime.now(timezone.utc).isoformat(),
+                    "version": 1,
+                    "transactions": [row(r) for r in db.query(models.Transaction).filter(models.Transaction.entity_id.in_(eids)).all()],
+                    "entities": [row(r) for r in db.query(models.Entity).filter(models.Entity.id.in_(eids)).all()],
+                    "categories": [row(r) for r in db.query(models.Category).all()],
+                    "accounts": [row(r) for r in db.query(models.Account).filter(models.Account.entity_id.in_(eids)).all()],
+                }
+                key = f"backups/user-{user.id}/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}.json"
+                s3.put_object(
+                    Bucket=bucket, Key=key,
+                    Body=json.dumps(payload), ContentType="application/json",
+                )
+                logger.info("Nightly backup uploaded for user %s → s3://%s/%s", user.id, bucket, key)
+            except Exception as e:
+                logger.warning("Backup failed for user %s: %s", user.id, e)
+    finally:
+        db.close()
+
+
 async def _nightly_backup():
-    """Push a JSON snapshot to S3 once per day if BACKUP_S3_BUCKET is set."""
-    import os, json, boto3
-    from datetime import timezone
-    from .routers.settings import export_data as _export
+    """Push a JSON snapshot to S3 once per day if BACKUP_S3_BUCKET is set.
+
+    Dispatched to a worker thread for the same reason as the UP sync — the
+    database reads and S3 upload are blocking and would otherwise freeze the
+    event loop.
+    """
+    import os
 
     bucket = os.environ.get("BACKUP_S3_BUCKET")
     if not bucket:
@@ -206,30 +261,7 @@ async def _nightly_backup():
     await asyncio.sleep(120)  # let the server fully start first
     while True:
         try:
-            db = SessionLocal()
-            try:
-                for user in db.query(models.User).all():
-                    try:
-                        payload = _export.__wrapped__(db=db, user=user) if hasattr(_export, '__wrapped__') else None
-                        # Build payload directly
-                        eids = [e.id for e in db.query(models.Entity).filter_by(user_id=user.id).all()]
-                        from datetime import datetime
-                        def row(obj): return {c.name: str(getattr(obj, c.name)) if not isinstance(getattr(obj, c.name), (int, float, bool, type(None))) else getattr(obj, c.name) for c in obj.__table__.columns}
-                        payload = {
-                            "exported_at": datetime.now(timezone.utc).isoformat(),
-                            "version": 1,
-                            "transactions": [row(r) for r in db.query(models.Transaction).filter(models.Transaction.entity_id.in_(eids)).all()],
-                            "entities": [row(r) for r in db.query(models.Entity).filter(models.Entity.id.in_(eids)).all()],
-                            "categories": [row(r) for r in db.query(models.Category).all()],
-                            "accounts": [row(r) for r in db.query(models.Account).filter(models.Account.entity_id.in_(eids)).all()],
-                        }
-                        key = f"backups/user-{user.id}/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}.json"
-                        boto3.client("s3").put_object(Bucket=bucket, Key=key, Body=json.dumps(payload), ContentType="application/json")
-                        logger.info("Nightly backup uploaded for user %s → s3://%s/%s", user.id, bucket, key)
-                    except Exception as e:
-                        logger.warning("Backup failed for user %s: %s", user.id, e)
-            finally:
-                db.close()
+            await asyncio.to_thread(_run_backup_once, bucket)
         except Exception as e:
             logger.warning("Nightly backup error: %s", e)
         await asyncio.sleep(86400)  # 24 hours
