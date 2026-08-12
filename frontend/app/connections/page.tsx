@@ -548,17 +548,37 @@ function UpCard({ entity, liveAccounts, anyConnected, showTokenInput }: { entity
           {syncErr && <div className="text-xs text-bad">{syncErr}</div>}
 
           {/* Backfill transfers */}
-          <div className="flex items-center gap-3 pt-1 border-t border-border">
-            <button
-              className="text-xs text-muted hover:text-white"
-              onClick={backfillTransfers}
-              disabled={backfilling}
-            >
-              {backfilling ? "Fixing…" : "Fix existing transfers"}
-            </button>
-            <span className="text-xs text-muted">— marks internal UP transfers so they don't count as income</span>
-            {backfillResult && (
-              <span className="text-xs text-good">{backfillResult.marked} transactions fixed</span>
+          <div className="pt-1 border-t border-border">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                className="text-xs text-muted hover:text-white"
+                onClick={backfillTransfers}
+                disabled={backfilling}
+              >
+                {backfilling ? "Fixing…" : "Fix existing transfers"}
+              </button>
+              <span className="text-xs text-muted">— marks internal UP transfers so they don&apos;t count as income</span>
+              {backfillResult && (
+                <span className="text-xs text-good">
+                  {backfillResult.marked} fixed
+                  {typeof backfillResult.examined === "number" && ` · ${backfillResult.examined} examined`}
+                </span>
+              )}
+            </div>
+            {backfillResult?.missed_count > 0 && (
+              <div className="mt-2 text-xs">
+                <div className="text-warn mb-1">
+                  {backfillResult.missed_count} transfer-looking payment{backfillResult.missed_count === 1 ? "" : "s"} still
+                  counting as income — not imported from UP, so this button can&apos;t reach them:
+                </div>
+                <ul className="text-muted space-y-0.5">
+                  {backfillResult.missed.map((m: any, i: number) => (
+                    <li key={i} className="font-mono">
+                      {money(m.amount_cents)} · {m.description || "(no description)"} · source={m.source || "—"} · id={m.external_id || "—"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </div>

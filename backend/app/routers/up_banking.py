@@ -5,6 +5,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -284,11 +285,14 @@ def backfill_transfers(
 
     transfer_cat_ids = {transfer_income_cat.id, internal_transfer_cat.id}
 
-    # Match any transaction that came from UP (external_id starts with "up:")
-    # regardless of source field value or existing category, so older imports work too.
+    # Match anything that came from UP — by external_id prefix or by the source
+    # column, since older imports set one without the other.
     eids = get_user_entity_ids(current_user, db)
     up_txns = db.query(models.Transaction).filter(
-        models.Transaction.external_id.like("up:%"),
+        or_(
+            models.Transaction.external_id.like("up:%"),
+            models.Transaction.source == "up",
+        ),
         models.Transaction.entity_id.in_(eids),
     ).all()
 
@@ -312,7 +316,33 @@ def backfill_transfers(
             interest_tagged += 1
 
     db.commit()
-    return {"marked": marked, "interest_tagged": interest_tagged}
+
+    # Any income still looking like a transfer but not categorised as one. A
+    # "0 fixed" result is otherwise indistinguishable from "nothing to fix".
+    leftovers = [
+        t for t in db.query(models.Transaction).filter(
+            models.Transaction.entity_id.in_(eids),
+            models.Transaction.direction == "in",
+        ).all()
+        if t.category_id not in transfer_cat_ids
+        and any(p in (t.description or "").lower() for p in TRANSFER_IN_PATTERNS)
+    ]
+
+    return {
+        "marked": marked,
+        "interest_tagged": interest_tagged,
+        "examined": len(up_txns),
+        "missed_count": len(leftovers),
+        "missed": [
+            {
+                "description": t.description,
+                "source": t.source,
+                "external_id": t.external_id,
+                "amount_cents": t.amount_cents,
+            }
+            for t in leftovers[:10]
+        ],
+    }
 
 
 def _do_sync(body: SyncIn, db: Session) -> dict:
