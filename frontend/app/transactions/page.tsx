@@ -180,7 +180,7 @@ const refresh = () =>
 
 export default function Transactions() {
   const { selected } = useEntity();
-  const { buildQs, DateFilter } = useDateFilter("all");
+  const { buildQs, DateFilter } = useDateFilter("month");
   const { data: txs, mutate: mutateTxs } = useSWR(buildQs(withEntity("/api/transactions", selected)), fetcher);
   const { data: entities } = useSWR("/api/entities", fetcher);
   const { data: categories } = useSWR("/api/categories", fetcher);

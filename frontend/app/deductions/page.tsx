@@ -5,7 +5,7 @@ import { fetcher, money } from "@/lib/api";
 import { useDateFilter } from "@/lib/use-date-filter";
 
 export default function Deductions() {
-  const { buildQs, DateFilter } = useDateFilter("fy0");
+  const { buildQs, DateFilter } = useDateFilter("month");
   const { data: entities } = useSWR("/api/entities", fetcher);
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
 

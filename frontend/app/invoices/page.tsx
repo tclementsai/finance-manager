@@ -19,7 +19,7 @@ const refreshInvoices = () =>
 
 export default function Invoices() {
   const { selected } = useEntity();
-  const { buildQs, DateFilter } = useDateFilter("all");
+  const { buildQs, DateFilter } = useDateFilter("month");
   const { data: invoices } = useSWR(buildQs(withEntity("/api/invoices", selected)), fetcher);
   const { data: entities } = useSWR("/api/entities", fetcher);
   const { data: clients } = useSWR("/api/clients", fetcher);

@@ -49,6 +49,11 @@ const fyLabel = (offset: number) => {
   return `FY${String(y + 1).slice(2)}`;
 };
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 type Preset = "week" | "month" | "quarter" | "fy0" | "fy-1" | "all" | "custom";
 
 const PRESETS: { id: Preset; label: string }[] = [
@@ -72,7 +77,7 @@ function rangeFor(preset: Preset): DateRange {
   }
 }
 
-export function useDateFilter(defaultPreset: Preset = "fy0") {
+export function useDateFilter(defaultPreset: Preset = "month") {
   const [preset, setPreset] = useState<Preset>(defaultPreset);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -89,8 +94,20 @@ export function useDateFilter(defaultPreset: Preset = "fy0") {
     return `${base}${sep}start=${start}&end=${end}`;
   }
 
+  // Caption under the presets, e.g. "from July 1". The year is included only
+  // when the range starts in a different year, so "FY26" isn't mistaken for
+  // this July rather than last.
+  const rangeCaption = (() => {
+    if (preset === "all") return "all time";
+    if (!range.start) return "select a start and end date";
+    const [y, m, d] = range.start.split("-").map(Number);
+    const month = MONTHS[m - 1];
+    return `from ${month} ${d}${y === today().getFullYear() ? "" : `, ${y}`}`;
+  })();
+
   const DateFilter = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
       <div className="flex rounded-lg overflow-hidden border border-border text-xs">
         {PRESETS.map((p) => {
           const label =
@@ -131,6 +148,8 @@ export function useDateFilter(defaultPreset: Preset = "fy0") {
           />
         </div>
       )}
+      </div>
+      <div className="text-xs text-muted">{rangeCaption}</div>
     </div>
   );
 

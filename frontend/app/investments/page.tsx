@@ -13,7 +13,7 @@ const refresh = () => globalMutate((k: any) => typeof k === "string" &&
 
 export default function Investments() {
   const { selected } = useEntity();
-  const { buildQs, DateFilter } = useDateFilter("fy0");
+  const { buildQs, DateFilter } = useDateFilter("month");
   const { data: holdings } = useSWR(withEntity("/api/holdings", selected), fetcher);
   const { data: cgt } = useSWR(buildQs(withEntity("/api/cgt-events", selected)), fetcher);
   const { data: pack } = useSWR(buildQs(withEntity("/api/dashboard/tax-pack", selected)), fetcher);

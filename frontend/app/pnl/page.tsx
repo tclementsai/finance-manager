@@ -9,7 +9,7 @@ import {
 
 export default function PnL() {
   const { selected } = useEntity();
-  const { buildQs, DateFilter } = useDateFilter("fy0");
+  const { buildQs, DateFilter } = useDateFilter("month");
 
   const url = buildQs(withEntity("/api/dashboard/pnl", selected));
   const { data } = useSWR(url, fetcher);
