@@ -261,8 +261,11 @@ def backfill_transfers(
     are excluded from income and expense totals.
     """
     TRANSFER_IN_PATTERNS = [
-        "transfer from", "round up transfer", "quick save", "auto save",
-        "cover from", "forward from",
+        # "round up" must come before the longer variant: UP labels the deposit
+        # landing in a Saver just "Round Up", so requiring "round up transfer"
+        # left those counting as income.
+        "transfer from", "round up", "quick save", "auto save",
+        "cover from", "forward from", "save now",
     ]
     TRANSFER_OUT_PATTERNS = [
         "transfer to", "round up", "quick save", "auto save",
