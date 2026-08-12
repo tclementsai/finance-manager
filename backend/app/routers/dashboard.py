@@ -62,8 +62,29 @@ def _summary_for_user(
         e.id: e.kind
         for e in db.query(models.Entity).filter(models.Entity.id.in_(user_entity_ids)).all()
     }
-    is_personal = lambda t: kinds.get(t.entity_id) == "personal"
-    is_business = lambda t: kinds.get(t.entity_id) in ("business", "company", "sole_trader")
+    def _is_stripe_income(t) -> bool:
+        """Money in via Stripe is business revenue whichever account it landed in.
+
+        A client paying an invoice is never personal income, even when the
+        payout is deposited to a personal bank account. Matches either the
+        source field (invoices marked paid) or the description (a Stripe payout
+        arriving through a bank feed such as UP).
+        """
+        if t.direction != "in":
+            return False
+        if (t.source or "").lower() == "stripe":
+            return True
+        return "stripe" in (t.description or "").lower()
+
+    # Stripe income is deliberately excluded from `is_personal` as well as being
+    # added to `is_business`, so it lands in exactly one of the two totals.
+    is_personal = lambda t: (
+        kinds.get(t.entity_id) == "personal" and not _is_stripe_income(t)
+    )
+    is_business = lambda t: (
+        kinds.get(t.entity_id) in ("business", "company", "sole_trader")
+        or _is_stripe_income(t)
+    )
 
     acct_types = {a.id: a.type for a in db.query(models.Account).filter(
         models.Account.entity_id.in_(user_entity_ids)
